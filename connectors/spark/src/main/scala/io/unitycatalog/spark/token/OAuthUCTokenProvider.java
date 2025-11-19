@@ -1,7 +1,10 @@
-package io.unitycatalog.spark;
+package io.unitycatalog.spark.token;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.unitycatalog.spark.ApiClientConf;
+import io.unitycatalog.spark.RetryingApiClient;
+import io.unitycatalog.spark.UCHadoopConf;
 import io.unitycatalog.spark.utils.Clock;
 import org.sparkproject.guava.base.Preconditions;
 

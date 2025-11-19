@@ -1,6 +1,8 @@
 package io.unitycatalog.spark;
 
 import io.unitycatalog.client.ApiClient;
+import io.unitycatalog.spark.token.FixedUCTokenProvider;
+import io.unitycatalog.spark.token.UCTokenProvider;
 import io.unitycatalog.spark.utils.Clock;
 
 import java.net.URI;

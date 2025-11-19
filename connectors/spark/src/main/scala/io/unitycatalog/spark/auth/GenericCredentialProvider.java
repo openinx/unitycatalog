@@ -10,7 +10,7 @@ import io.unitycatalog.client.model.TemporaryCredentials;
 import io.unitycatalog.spark.ApiClientConf;
 import io.unitycatalog.spark.ApiClientFactory;
 import io.unitycatalog.spark.UCHadoopConf;
-import io.unitycatalog.spark.UCTokenProvider;
+import io.unitycatalog.spark.token.UCTokenProvider;
 import io.unitycatalog.spark.utils.Clock;
 import java.net.URI;
 import org.apache.hadoop.conf.Configuration;

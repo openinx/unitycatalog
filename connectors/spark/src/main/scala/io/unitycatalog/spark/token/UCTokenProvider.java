@@ -1,7 +1,8 @@
-package io.unitycatalog.spark;
+package io.unitycatalog.spark.token;
 
 import static org.sparkproject.guava.base.Preconditions.checkArgument;
 
+import io.unitycatalog.spark.UCHadoopConf;
 import io.unitycatalog.spark.utils.OptionsUtil;
 import java.util.Map;
 import java.util.stream.Collectors;

@@ -1,5 +1,6 @@
-package io.unitycatalog.spark;
+package io.unitycatalog.spark.token;
 
+import io.unitycatalog.spark.UCHadoopConf;
 import java.util.Map;
 
 public class FixedUCTokenProvider implements UCTokenProvider {
