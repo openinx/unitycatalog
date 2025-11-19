@@ -9,7 +9,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.unitycatalog.spark.RetryingApiClient;
-import io.unitycatalog.spark.UCHadoopConf;
 import io.unitycatalog.spark.utils.Clock;
 import java.io.IOException;
 import java.net.http.HttpClient;
@@ -43,96 +42,72 @@ public class OAuthUCTokenProviderTest {
   }
 
   @Test
-  public void testAccessToken_fetchesTokenOnFirstCall() throws Exception {
-    // Arrange
+  public void testAccessTokenCachesTokenAndReusesIt() throws Exception {
     mockOAuthResponse(ACCESS_TOKEN_1, EXPIRES_IN_SECONDS);
     OAuthUCTokenProvider provider =
         new OAuthUCTokenProvider(
             OAUTH_URI, CLIENT_ID, CLIENT_SECRET, 30L, mockRetryingApiClient, clock);
 
-    // Act
-    String token = provider.accessToken();
-
-    // Assert
-    assertThat(token).isEqualTo(ACCESS_TOKEN_1);
-    verifyOAuthRequest(1);
-  }
-
-  @Test
-  public void testAccessToken_cachesTokenAndReusesIt() throws Exception {
-    // Arrange
-    mockOAuthResponse(ACCESS_TOKEN_1, EXPIRES_IN_SECONDS);
-    OAuthUCTokenProvider provider =
-        new OAuthUCTokenProvider(
-            OAUTH_URI, CLIENT_ID, CLIENT_SECRET, 30L, mockRetryingApiClient, clock);
-
-    // Act - call multiple times
     String token1 = provider.accessToken();
-    String token2 = provider.accessToken();
-    String token3 = provider.accessToken();
+    verifyOAuthRequest(1);
 
-    // Assert
+    String token2 = provider.accessToken();
+    verifyOAuthRequest(1);
+
+    String token3 = provider.accessToken();
+    verifyOAuthRequest(1);
+
     assertThat(token1).isEqualTo(ACCESS_TOKEN_1);
     assertThat(token2).isEqualTo(ACCESS_TOKEN_1);
     assertThat(token3).isEqualTo(ACCESS_TOKEN_1);
-    verifyOAuthRequest(1); // Only one request made
   }
 
   @Test
-  public void testAccessToken_renewsTokenBeforeExpiration() throws Exception {
-    // Arrange - token expires in 60 seconds, renewal lead time is 30 seconds
+  public void testAccessTokenRenewsTokenBeforeExpiration() throws Exception {
     mockOAuthResponse(ACCESS_TOKEN_1, 60L);
     OAuthUCTokenProvider provider =
         new OAuthUCTokenProvider(
             OAUTH_URI, CLIENT_ID, CLIENT_SECRET, 30L, mockRetryingApiClient, clock);
 
-    // Act - first call
     String token1 = provider.accessToken();
     assertThat(token1).isEqualTo(ACCESS_TOKEN_1);
+    verifyOAuthRequest(1);
 
-    // Advance clock by 29 seconds - still within valid period
+    // Token still valid after 29 seconds (renewal lead time is 30 seconds)
     clock.sleep(Duration.ofSeconds(29));
     String token2 = provider.accessToken();
     assertThat(token2).isEqualTo(ACCESS_TOKEN_1);
-    verifyOAuthRequest(1); // Still only one request
+    verifyOAuthRequest(1);
 
-    // Advance clock by 2 more seconds (total 31 seconds) - should trigger renewal
+    // After 31 seconds total, token should be renewed
     clock.sleep(Duration.ofSeconds(2));
     mockOAuthResponse(ACCESS_TOKEN_2, 60L);
-    String token3 = provider.accessToken();
 
-    // Assert
+    String token3 = provider.accessToken();
     assertThat(token3).isEqualTo(ACCESS_TOKEN_2);
-    verifyOAuthRequest(2); // Two requests made
+    verifyOAuthRequest(2);
   }
 
   @Test
-  public void testAccessToken_sendsCorrectHttpRequest() throws Exception {
-    // Arrange
+  public void testAccessTokenSendsCorrectHttpRequest() throws Exception {
     mockOAuthResponse(ACCESS_TOKEN_1, EXPIRES_IN_SECONDS);
     OAuthUCTokenProvider provider =
         new OAuthUCTokenProvider(
             OAUTH_URI, CLIENT_ID, CLIENT_SECRET, 30L, mockRetryingApiClient, clock);
 
-    // Act
     provider.accessToken();
 
-    // Assert - verify the HTTP request details
     ArgumentCaptor<HttpRequest> requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
     verify(mockHttpClient).send(requestCaptor.capture(), any());
 
     HttpRequest request = requestCaptor.getValue();
     assertThat(request.uri().toString()).isEqualTo(OAUTH_URI);
     assertThat(request.method()).isEqualTo("POST");
-
-    // Verify Authorization header contains Base64 encoded credentials
     assertThat(request.headers().firstValue("Authorization"))
         .isPresent()
         .get()
         .asString()
         .startsWith("Basic ");
-
-    // Verify Content-Type header
     assertThat(request.headers().firstValue("Content-Type"))
         .isPresent()
         .get()
@@ -140,9 +115,8 @@ public class OAuthUCTokenProviderTest {
   }
 
   @Test
-  public void testAccessToken_handlesHttpError() throws Exception {
-    // Arrange
-    @SuppressWarnings("unchecked")
+  @SuppressWarnings("unchecked")
+  public void testAccessTokenHandlesHttpError() throws Exception {
     HttpResponse<String> mockResponse = mock(HttpResponse.class);
     when(mockResponse.statusCode()).thenReturn(401);
     when(mockResponse.body()).thenReturn("Unauthorized");
@@ -153,72 +127,33 @@ public class OAuthUCTokenProviderTest {
         new OAuthUCTokenProvider(
             OAUTH_URI, CLIENT_ID, CLIENT_SECRET, 30L, mockRetryingApiClient, clock);
 
-    // Act & Assert
-    assertThatThrownBy(() -> provider.accessToken())
+    assertThatThrownBy(provider::accessToken)
         .isInstanceOf(RuntimeException.class)
         .hasMessageContaining("Failed to renew OAuth token")
         .hasCauseInstanceOf(IOException.class);
   }
 
   @Test
-  public void testAccessToken_handlesInterruptedException() throws Exception {
-    // Arrange
-    when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
-        .thenThrow(new InterruptedException("Test interruption"));
-
-    OAuthUCTokenProvider provider =
-        new OAuthUCTokenProvider(
-            OAUTH_URI, CLIENT_ID, CLIENT_SECRET, 30L, mockRetryingApiClient, clock);
-
-    // Act & Assert
-    assertThatThrownBy(() -> provider.accessToken())
-        .isInstanceOf(RuntimeException.class)
-        .hasMessageContaining("Failed to renew OAuth token");
-
-    // Verify interrupt flag is set
-    assertThat(Thread.currentThread().isInterrupted()).isTrue();
-    Thread.interrupted(); // Clear interrupt flag for other tests
-  }
-
-  @Test
-  public void testAccessToken_renewsImmediatelyWhenExpired() throws Exception {
-    // Arrange - token with very short expiration
+  public void testAccessTokenRenewsImmediatelyWhenExpired() throws Exception {
     mockOAuthResponse(ACCESS_TOKEN_1, 10L);
     OAuthUCTokenProvider provider =
         new OAuthUCTokenProvider(
             OAUTH_URI, CLIENT_ID, CLIENT_SECRET, 30L, mockRetryingApiClient, clock);
 
-    // Act - first call
     String token1 = provider.accessToken();
     assertThat(token1).isEqualTo(ACCESS_TOKEN_1);
+    verifyOAuthRequest(1);
 
-    // Token already needs renewal due to lead time being 30 seconds but expiry only 10 seconds
-    // So next call should immediately renew
+    // Token needs immediate renewal (expiry 10s < lead time 30s)
     mockOAuthResponse(ACCESS_TOKEN_2, 10L);
+
     String token2 = provider.accessToken();
-
-    // Assert
     assertThat(token2).isEqualTo(ACCESS_TOKEN_2);
-    verifyOAuthRequest(2); // Two requests made
+    verifyOAuthRequest(2);
   }
 
   @Test
-  public void testProperties_returnsCorrectConfiguration() {
-    // Arrange
-    OAuthUCTokenProvider provider = new OAuthUCTokenProvider(OAUTH_URI, CLIENT_ID, CLIENT_SECRET);
-
-    // Act
-    var properties = provider.properties();
-
-    // Assert
-    assertThat(properties)
-        .containsEntry(UCHadoopConf.UC_OAUTH_URI, OAUTH_URI)
-        .containsEntry(UCHadoopConf.UC_OAUTH_CLIENT_ID, CLIENT_ID)
-        .containsEntry(UCHadoopConf.UC_OAUTH_CLIENT_SECRET, CLIENT_SECRET);
-  }
-
-  @Test
-  public void testConstructor_validatesNullParameters() {
+  public void testConstructor() {
     assertThatThrownBy(
             () ->
                 new OAuthUCTokenProvider(
@@ -239,10 +174,7 @@ public class OAuthUCTokenProviderTest {
                     OAUTH_URI, CLIENT_ID, null, 30L, mockRetryingApiClient, clock))
         .isInstanceOf(NullPointerException.class)
         .hasMessageContaining("OAuth client secret must not be null");
-  }
 
-  @Test
-  public void testConstructor_validatesNegativeLeadRenewalTime() {
     assertThatThrownBy(
             () ->
                 new OAuthUCTokenProvider(

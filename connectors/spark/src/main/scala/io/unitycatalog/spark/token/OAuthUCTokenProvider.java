@@ -6,11 +6,8 @@ import io.unitycatalog.spark.ApiClientConf;
 import io.unitycatalog.spark.RetryingApiClient;
 import io.unitycatalog.spark.UCHadoopConf;
 import io.unitycatalog.spark.utils.Clock;
-import org.sparkproject.guava.base.Preconditions;
-
 import java.io.IOException;
 import java.net.URI;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -18,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Map;
+import org.sparkproject.guava.base.Preconditions;
 
 /**
  * OAuth-based token provider that fetches and automatically renews access tokens.
@@ -38,8 +36,7 @@ public class OAuthUCTokenProvider implements UCTokenProvider {
   private final HttpClient httpClient;
   private final Clock clock;
 
-  private volatile String cachedToken;
-  private volatile Instant tokenExpirationTime;
+  private volatile TempToken tempToken;
 
   public OAuthUCTokenProvider(String oauthUri, String oauthClientId, String oauthClientSecret) {
     this(oauthUri, oauthClientId, oauthClientSecret, DEFAULT_LEAD_RENEWAL_TIME_SECONDS,
@@ -71,11 +68,15 @@ public class OAuthUCTokenProvider implements UCTokenProvider {
   }
 
   @Override
-  public synchronized String accessToken() {
-    if (needsRenewal()) {
-      renewToken();
+  public String accessToken() {
+    if (tempToken == null || tempToken.isReadyToRenew()) {
+      synchronized (this) {
+        if (tempToken == null || tempToken.isReadyToRenew()) {
+          tempToken = renewToken();
+        }
+      }
     }
-    return cachedToken;
+    return tempToken.token();
   }
 
   @Override
@@ -86,24 +87,15 @@ public class OAuthUCTokenProvider implements UCTokenProvider {
         UCHadoopConf.UC_OAUTH_CLIENT_SECRET, oauthClientSecret);
   }
 
-  private boolean needsRenewal() {
-    if (cachedToken == null || tokenExpirationTime == null) {
-      return true;
-    }
-    Instant renewalTime = tokenExpirationTime.minusSeconds(leadRenewalTimeSeconds);
-    return clock.now().isAfter(renewalTime);
-  }
-
-  private void renewToken() {
+  private TempToken renewToken() {
     try {
       // Prepare Basic authentication header
-      String credentials = oauthClientId + ":" + oauthClientSecret;
+      String credentials = String.format("%s:%s", oauthClientId, oauthClientSecret);
       String encodedCredentials = Base64.getEncoder()
           .encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
 
       // Prepare form data
-      String formData = "grant_type=client_credentials&scope=" +
-          URLEncoder.encode("all-apis", StandardCharsets.UTF_8);
+      String formData = "grant_type=client_credentials&scope=all-apis";
 
       // Build HTTP request
       HttpRequest request = HttpRequest.newBuilder()
@@ -128,15 +120,28 @@ public class OAuthUCTokenProvider implements UCTokenProvider {
       String accessToken = jsonNode.get("access_token").asText();
       long expiresInSeconds = jsonNode.get("expires_in").asLong();
 
-      // Update cached token and expiration time
-      cachedToken = accessToken;
-      tokenExpirationTime = clock.now().plusSeconds(expiresInSeconds);
-
-    } catch (IOException | InterruptedException e) {
-      if (e instanceof InterruptedException) {
-        Thread.currentThread().interrupt();
-      }
+      return new TempToken(accessToken, clock.now().plusSeconds(expiresInSeconds));
+    } catch (Exception e) {
       throw new RuntimeException("Failed to renew OAuth token", e);
+    }
+  }
+
+  private class TempToken {
+    private final String token;
+    private final Instant expirationTime;
+
+    TempToken(String token, Instant expirationTime) {
+      this.token = token;
+      this.expirationTime = expirationTime;
+    }
+
+    public String token() {
+      return token;
+    }
+
+    public boolean isReadyToRenew() {
+      Instant renewalTime = expirationTime.minusSeconds(leadRenewalTimeSeconds);
+      return clock.now().isAfter(renewalTime);
     }
   }
 }

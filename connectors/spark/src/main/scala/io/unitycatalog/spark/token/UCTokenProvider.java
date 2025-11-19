@@ -5,7 +5,6 @@ import static org.sparkproject.guava.base.Preconditions.checkArgument;
 import io.unitycatalog.spark.UCHadoopConf;
 import io.unitycatalog.spark.utils.OptionsUtil;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.apache.hadoop.conf.Configuration;
 
 public interface UCTokenProvider {
@@ -23,6 +22,14 @@ public interface UCTokenProvider {
    */
   Map<String, String> properties();
 
+  /**
+   * Creates a token provider from configuration options. Returns {@link FixedUCTokenProvider} if
+   * a token is provided, or {@link OAuthUCTokenProvider} if OAuth credentials are provided.
+   *
+   * @param options containing authentication credentials
+   * @return a token provider instance
+   * @throws IllegalArgumentException if options are missing or incomplete
+   */
   static UCTokenProvider create(Map<String, String> options) {
     // If token is available, use FixedUCTokenProvider.
     String token = options.get(OptionsUtil.TOKEN);
@@ -48,16 +55,16 @@ public interface UCTokenProvider {
     throw new IllegalArgumentException("Cannot determine UCTokenProvider from options");
   }
 
+  /**
+   * Creates a token provider from Hadoop configuration by extracting Unity Catalog properties
+   * and delegating to {@link #create(Map)}.
+   *
+   * @param conf Hadoop configuration containing Unity Catalog properties
+   * @return a token provider instance
+   * @throws IllegalArgumentException if configuration is missing or incomplete
+   */
   static UCTokenProvider create(Configuration conf) {
-    Map<String, String> options =
-        conf.getPropsWithPrefix(UCHadoopConf.FS_UC_PREFIX)
-            .entrySet()
-            .stream()
-            .collect(Collectors.toMap(
-                e -> e.getKey().substring(UCHadoopConf.FS_UC_PREFIX.length()),
-                Map.Entry::getValue
-            ));
-
+    Map<String, String> options = conf.getPropsWithPrefix(UCHadoopConf.FS_UC_PREFIX);
     return create(options);
   }
 }
