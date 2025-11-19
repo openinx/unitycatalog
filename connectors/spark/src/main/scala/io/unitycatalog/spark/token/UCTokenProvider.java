@@ -9,8 +9,18 @@ import java.util.stream.Collectors;
 import org.apache.hadoop.conf.Configuration;
 
 public interface UCTokenProvider {
+  /**
+   * Returns the access token for Unity Catalog authentication.
+   *
+   * @return the access token string
+   */
   String accessToken();
 
+  /**
+   * Returns the configuration properties associated with this token provider.
+   *
+   * @return a map of configuration key-value pairs
+   */
   Map<String, String> properties();
 
   static UCTokenProvider create(Map<String, String> options) {
