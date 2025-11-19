@@ -1,0 +1,52 @@
+package io.unitycatalog.spark;
+
+import static org.sparkproject.guava.base.Preconditions.checkArgument;
+
+import io.unitycatalog.spark.utils.OptionsUtil;
+import java.util.Map;
+import java.util.stream.Collectors;
+import org.apache.hadoop.conf.Configuration;
+
+public interface UCTokenProvider {
+  String accessToken();
+
+  Map<String, String> properties();
+
+  static UCTokenProvider create(Map<String, String> options) {
+    // If token is available, use FixedUCTokenProvider.
+    String token = options.get(OptionsUtil.TOKEN);
+    if (token != null && !token.isEmpty()) {
+      return new FixedUCTokenProvider(token);
+    }
+
+    // If OAuth options is available, use OAuthUCTokenProvider.
+    String oauthUri = options.get(OptionsUtil.OAUTH_URI);
+    String oauthClientId = options.get(OptionsUtil.OAUTH_CLIENT_ID);
+    String oauthClientSecret = options.get(OptionsUtil.OAUTH_CLIENT_SECRET);
+    if (oauthUri != null || oauthClientId != null || oauthClientSecret != null) {
+      checkArgument(oauthUri != null && oauthClientId != null && oauthClientSecret != null,
+          "Incomplete OAuth configuration detected. All of the keys are required: " +
+              "spark.sql.catalog.<catalogName>.oauthUri, " +
+              "spark.sql.catalog.<catalogName>.oauthClientId, " +
+              "spark.sql.catalog.<catalogName>.oauthClientSecret. " +
+              "Please ensure they are all set.");
+
+      return new OAuthUCTokenProvider(oauthUri, oauthClientId, oauthClientSecret);
+    }
+
+    throw new IllegalArgumentException("Cannot determine UCTokenProvider from options");
+  }
+
+  static UCTokenProvider create(Configuration conf) {
+    Map<String, String> options =
+        conf.getPropsWithPrefix(UCHadoopConf.FS_UC_PREFIX)
+            .entrySet()
+            .stream()
+            .collect(Collectors.toMap(
+                e -> e.getKey().substring(UCHadoopConf.FS_UC_PREFIX.length()),
+                Map.Entry::getValue
+            ));
+
+    return create(options);
+  }
+}

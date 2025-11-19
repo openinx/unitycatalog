@@ -32,7 +32,7 @@ class UCSingleCatalog
   with Logging {
 
   private[this] var uri: URI = null
-  private[this] var token: String = null
+  private[this] var ucTokenProvider: UCTokenProvider = null
   private[this] var renewCredEnabled: Boolean = false
   private[this] var apiClient: ApiClient = null;
   private[this] var temporaryCredentialsApi: TemporaryCredentialsApi = null
@@ -44,14 +44,14 @@ class UCSingleCatalog
     Preconditions.checkArgument(urlStr != null,
       "uri must be specified for Unity Catalog '%s'", name)
     uri = new URI(urlStr)
-    token = options.get(OptionsUtil.TOKEN)
+    ucTokenProvider = UCTokenProvider.create(options)
     renewCredEnabled = OptionsUtil.getBoolean(options,
       OptionsUtil.RENEW_CREDENTIAL_ENABLED,
       OptionsUtil.DEFAULT_RENEW_CREDENTIAL_ENABLED)
 
-    apiClient = ApiClientFactory.createApiClient(new ApiClientConf(), uri, token)
+    apiClient = ApiClientFactory.createApiClient(new ApiClientConf(), uri, ucTokenProvider)
     temporaryCredentialsApi = new TemporaryCredentialsApi(apiClient)
-    val proxy = new UCProxy(uri, token, renewCredEnabled, apiClient, temporaryCredentialsApi)
+    val proxy = new UCProxy(uri, ucTokenProvider, renewCredEnabled, apiClient, temporaryCredentialsApi)
     proxy.initialize(name, options)
     if (UCSingleCatalog.LOAD_DELTA_CATALOG.get()) {
       try {
@@ -118,7 +118,7 @@ class UCSingleCatalog
         renewCredEnabled,
         CatalogUtils.stringToURI(location).getScheme,
         uri.toString,
-        token,
+        ucTokenProvider,
         location,
         PathOperation.PATH_CREATE_TABLE,
         cred)
@@ -185,7 +185,7 @@ object UCSingleCatalog {
 // An internal proxy to talk to the UC client.
 private class UCProxy(
     uri: URI,
-    token: String,
+    ucTokenProvider: UCTokenProvider,
     renewCredEnabled: Boolean,
     apiClient: ApiClient,
     temporaryCredentialsApi: TemporaryCredentialsApi) extends TableCatalog with SupportsNamespaces {
@@ -261,7 +261,7 @@ private class UCProxy(
       renewCredEnabled,
       locationUri.getScheme,
       uri.toString,
-      token,
+      ucTokenProvider,
       tableId,
       tableOp,
       temporaryCredentials,
