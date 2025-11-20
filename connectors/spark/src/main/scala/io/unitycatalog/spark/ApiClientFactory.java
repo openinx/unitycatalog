@@ -1,10 +1,8 @@
 package io.unitycatalog.spark;
 
 import io.unitycatalog.client.ApiClient;
-import io.unitycatalog.spark.token.FixedUCTokenProvider;
 import io.unitycatalog.spark.token.UCTokenProvider;
 import io.unitycatalog.spark.utils.Clock;
-
 import java.net.URI;
 
 public class ApiClientFactory {
@@ -12,10 +10,6 @@ public class ApiClientFactory {
   public static final String BASE_PATH = "/api/2.1/unity-catalog";
 
   private ApiClientFactory() {
-  }
-
-  public static ApiClient createApiClient(ApiClientConf apiClientConf, URI url, String token) {
-    return createApiClient(apiClientConf, url, new FixedUCTokenProvider(token));
   }
 
   public static ApiClient createApiClient(
