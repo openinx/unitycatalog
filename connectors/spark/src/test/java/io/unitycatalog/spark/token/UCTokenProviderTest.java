@@ -24,12 +24,6 @@ public class UCTokenProviderTest {
     assertThat(tokenProvider).isInstanceOf(FixedUCTokenProvider.class);
     assertThat(tokenProvider.accessToken()).isEqualTo("test-token");
 
-    // Test with empty token - should throw
-    Map<String, String> emptyTokenOptions = Map.of(OptionsUtil.TOKEN, "");
-    assertThatThrownBy(() -> UCTokenProvider.create(emptyTokenOptions))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("Cannot determine UCTokenProvider from options");
-
     // Test with complete OAuth config - should create OAuthUCTokenProvider
     UCTokenProvider oauthProvider =
         UCTokenProvider.create(
@@ -73,13 +67,6 @@ public class UCTokenProviderTest {
     UCTokenProvider confTokenProvider = UCTokenProvider.create(tokenConf);
     assertThat(confTokenProvider).isInstanceOf(FixedUCTokenProvider.class);
     assertThat(confTokenProvider.accessToken()).isEqualTo("conf-token");
-
-    // Test with Configuration containing empty token - should throw
-    Configuration emptyTokenConf = new Configuration();
-    emptyTokenConf.set(UCHadoopConf.UC_TOKEN_KEY, "");
-    assertThatThrownBy(() -> UCTokenProvider.create(emptyTokenConf))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("Cannot determine UCTokenProvider from options");
 
     // Test with Configuration containing complete OAuth config
     Configuration oauthConf = new Configuration();

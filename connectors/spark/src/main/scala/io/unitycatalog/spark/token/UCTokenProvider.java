@@ -33,7 +33,7 @@ public interface UCTokenProvider {
   static UCTokenProvider create(Map<String, String> options) {
     // If token is available, use FixedUCTokenProvider.
     String token = options.get(OptionsUtil.TOKEN);
-    if (token != null && !token.isEmpty()) {
+    if (token != null) {
       return new FixedUCTokenProvider(token);
     }
 

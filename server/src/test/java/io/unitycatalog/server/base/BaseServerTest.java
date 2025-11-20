@@ -15,7 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 
 public abstract class BaseServerTest {
 
-  public static ServerConfig serverConfig = new ServerConfig("http://localhost", "token");
+  public static ServerConfig serverConfig = new ServerConfig("http://localhost", "");
   protected static UnityCatalogServer unityCatalogServer;
   protected static Properties serverProperties;
   protected static HibernateConfigurator hibernateConfigurator;
