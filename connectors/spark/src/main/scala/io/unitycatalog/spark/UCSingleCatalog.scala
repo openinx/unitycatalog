@@ -87,7 +87,12 @@ class UCSingleCatalog
   override def loadTable(ident: Identifier, timestamp:  Long): Table = delegate.loadTable(ident, timestamp)
 
   override def tableExists(ident: Identifier): Boolean = {
-    delegate.tableExists(ident)
+    // scalastyle:off
+    println(s"[UCSingleCatalog] tableExists called for: $ident")
+    val result = delegate.tableExists(ident)
+    println(s"[UCSingleCatalog] tableExists result: $result")
+    // scalastyle:on
+    result
   }
 
   override def createTable(
@@ -328,13 +333,27 @@ private class UCProxy(
   }
 
   override def loadTable(ident: Identifier): Table = {
+    // scalastyle:off
+    println(s"[UCProxy] loadTable called for: $ident (catalog=${this.name})")
+    // scalastyle:on
     val t = try {
-      tablesApi.getTable(
-        UCSingleCatalog.fullTableNameForApi(this.name, ident),
+      val fullName = UCSingleCatalog.fullTableNameForApi(this.name, ident)
+      // scalastyle:off
+      println(s"[UCProxy] calling tablesApi.getTable for: $fullName")
+      // scalastyle:on
+      val result = tablesApi.getTable(
+        fullName,
         /* readStreamingTableAsManaged = */ true,
         /* readMaterializedViewAsManaged = */ true)
+      // scalastyle:off
+      println(s"[UCProxy] tablesApi.getTable succeeded, location: ${result.getStorageLocation}")
+      // scalastyle:on
+      result
     } catch {
       case e: ApiException if e.getCode == 404 =>
+        // scalastyle:off
+        println(s"[UCProxy] table not found (404): $ident")
+        // scalastyle:on
         throw new NoSuchTableException(ident)
     }
     val identifier = TableIdentifier(t.getName, Some(t.getSchemaName), Some(t.getCatalogName))
