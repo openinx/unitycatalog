@@ -25,11 +25,14 @@ import java.util.Map;
 import org.apache.hadoop.fs.Path;
 import org.apache.spark.sql.catalyst.analysis.NoSuchNamespaceException;
 import org.apache.spark.sql.catalyst.analysis.NoSuchTableException;
+import org.apache.spark.sql.catalyst.analysis.TableAlreadyExistsException;
 import org.apache.spark.sql.catalyst.catalog.CatalogUtils;
 import org.apache.spark.sql.connector.catalog.Column;
 import org.apache.spark.sql.connector.catalog.DelegatingCatalogExtension;
 import org.apache.spark.sql.connector.catalog.Identifier;
 import org.apache.spark.sql.connector.catalog.NamespaceChange;
+import org.apache.spark.sql.connector.catalog.StagedTable;
+import org.apache.spark.sql.connector.catalog.StagingTableCatalog;
 import org.apache.spark.sql.connector.catalog.SupportsNamespaces;
 import org.apache.spark.sql.connector.catalog.Table;
 import org.apache.spark.sql.connector.catalog.TableCatalog;
@@ -42,7 +45,7 @@ import org.slf4j.LoggerFactory;
 import org.sparkproject.guava.base.Preconditions;
 
 /** A Spark catalog plugin to get/manage tables in Unity Catalog. */
-public class UCSingleCatalog implements TableCatalog, SupportsNamespaces {
+public class UCSingleCatalog implements StagingTableCatalog, SupportsNamespaces {
   private static final Logger LOG = LoggerFactory.getLogger(UCSingleCatalog.class);
 
   static final ThreadLocal<Boolean> LOAD_DELTA_CATALOG = ThreadLocal.withInitial(() -> true);
@@ -340,6 +343,40 @@ public class UCSingleCatalog implements TableCatalog, SupportsNamespaces {
     } catch (org.apache.spark.sql.catalyst.analysis.NonEmptyNamespaceException e) {
       throw new RuntimeException("Namespace is not empty", e);
     }
+  }
+
+  @Override
+  public StagedTable stageCreate(
+      Identifier ident, StructType schema, Transform[] partitions, Map<String, String> properties)
+      throws TableAlreadyExistsException, NoSuchNamespaceException {
+    if (delegate instanceof StagingTableCatalog) {
+      return ((StagingTableCatalog) delegate).stageCreate(ident, schema, partitions, properties);
+    }
+    throw new UnsupportedOperationException(
+        "Delegate catalog does not support StagingTableCatalog");
+  }
+
+  @Override
+  public StagedTable stageReplace(
+      Identifier ident, StructType schema, Transform[] partitions, Map<String, String> properties)
+      throws NoSuchNamespaceException, NoSuchTableException {
+    if (delegate instanceof StagingTableCatalog) {
+      return ((StagingTableCatalog) delegate).stageReplace(ident, schema, partitions, properties);
+    }
+    throw new UnsupportedOperationException(
+        "Delegate catalog does not support StagingTableCatalog");
+  }
+
+  @Override
+  public StagedTable stageCreateOrReplace(
+      Identifier ident, StructType schema, Transform[] partitions, Map<String, String> properties)
+      throws NoSuchNamespaceException {
+    if (delegate instanceof StagingTableCatalog) {
+      return ((StagingTableCatalog) delegate)
+          .stageCreateOrReplace(ident, schema, partitions, properties);
+    }
+    throw new UnsupportedOperationException(
+        "Delegate catalog does not support StagingTableCatalog");
   }
 
   // Static methods from companion object
