@@ -10,6 +10,7 @@ import io.unitycatalog.client.model.PathOperation;
 import io.unitycatalog.client.model.TableOperation;
 import io.unitycatalog.client.model.TemporaryCredentials;
 import java.util.Map;
+import org.apache.hadoop.conf.Configuration;
 import org.junit.jupiter.api.Test;
 
 class CredentialSettingTest {
@@ -52,17 +53,16 @@ class CredentialSettingTest {
 
   @Test
   void s3TableWithCustomFsImpl() {
-    Map<String, String> existing =
-        Map.of(
-            "fs.s3.impl", "com.example.Custom",
-            "fs.s3a.impl", "com.example.Custom");
+    Configuration conf = new Configuration(false);
+    conf.set("fs.s3.impl", "com.example.Custom");
+    conf.set("fs.s3a.impl", "com.example.Custom");
 
     Map<String, String> props =
         staticBuilder()
             .initialCredentials(s3Creds())
             .scheme("s3")
             .enableCredentialScopedFs(true)
-            .existingFsImplProperties(existing)
+            .hadoopConf(conf)
             .buildForTable("tid", TableOperation.READ_WRITE);
 
     assertThat(props)

@@ -5,8 +5,8 @@ import io.unitycatalog.client.model.PathOperation;
 import io.unitycatalog.client.model.TableOperation;
 import io.unitycatalog.client.model.TemporaryCredentials;
 import io.unitycatalog.hadoop.internal.auth.CredPropsUtil;
-import java.util.Collections;
 import java.util.Map;
+import org.apache.hadoop.conf.Configuration;
 
 /**
  * Produces the Hadoop configuration properties that a connector (Spark, Flink, Trino, etc.) must
@@ -56,12 +56,13 @@ public final class CredentialSetting {
     private String scheme;
     private boolean credentialRenewalEnabled = true;
     private boolean credentialScopedFsEnabled = true;
-    private Map<String, String> existingFsImplProperties = Collections.emptyMap();
+    private Configuration hadoopConf = new Configuration(false);
 
     private Builder() {}
 
     /**
-     * (Required) The Unity Catalog server URI, e.g. {@code "https://host/api/2.1/unity-catalog"}.
+     * (Required) The Unity Catalog server base URI, e.g. {@code "https://my-uc-server"}. Do not
+     * include the API path suffix ({@code /api/2.1/unity-catalog}); it is appended automatically.
      */
     public Builder catalogUri(String uri) {
       this.catalogUri = uri;
@@ -116,12 +117,13 @@ public final class CredentialSetting {
     }
 
     /**
-     * Existing {@code fs.<scheme>.impl} properties from the engine session (default empty map).
-     * When credential-scoped FS is enabled, these values are stashed under {@code
-     * fs.<scheme>.impl.original} so the wrapper can restore the real delegate.
+     * The engine's existing Hadoop {@link Configuration}. When credential-scoped FS is enabled, the
+     * builder extracts the relevant {@code fs.<scheme>.impl} values so it can preserve the original
+     * filesystem implementation before overriding it. Engine connectors should pass their Hadoop
+     * config here; they do not need to know which specific keys are used internally.
      */
-    public Builder existingFsImplProperties(Map<String, String> props) {
-      this.existingFsImplProperties = props;
+    public Builder hadoopConf(Configuration conf) {
+      this.hadoopConf = conf;
       return this;
     }
 
@@ -136,7 +138,7 @@ public final class CredentialSetting {
       return CredPropsUtil.createTableCredProps(
           credentialRenewalEnabled,
           credentialScopedFsEnabled,
-          existingFsImplProperties,
+          hadoopConf,
           scheme,
           catalogUri,
           tokenProvider,
@@ -156,7 +158,7 @@ public final class CredentialSetting {
       return CredPropsUtil.createPathCredProps(
           credentialRenewalEnabled,
           credentialScopedFsEnabled,
-          existingFsImplProperties,
+          hadoopConf,
           scheme,
           catalogUri,
           tokenProvider,

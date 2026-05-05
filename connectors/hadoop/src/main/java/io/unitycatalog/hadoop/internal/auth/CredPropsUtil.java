@@ -16,6 +16,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import org.apache.hadoop.conf.Configuration;
 
 /**
  * Internal utility that builds cloud-provider-specific Hadoop configuration properties for
@@ -100,14 +101,21 @@ public class CredPropsUtil {
     }
 
     /**
-     * Saves the current value of {@code key} from {@code fsImplProps} (falling back to {@code
+     * Saves the current value of {@code key} from {@code hadoopProps} (falling back to {@code
      * defaultOriginal}) under {@code key + ".original"}, then overrides {@code key} with {@code
      * newValue}. This lets CredScopedFileSystem#newFileSystem restore the real delegate
      * implementation after the wrapper has been installed.
+     *
+     * <p>If the existing value is already one of the credential-scoped FS classes, it is ignored
+     * (falls back to {@code defaultOriginal}) to prevent recursive wrapping.
      */
     public T saveAndOverride(
-        Map<String, String> fsImplProps, String key, String defaultOriginal, String newValue) {
-      builder.put(key + ".original", fsImplProps.getOrDefault(key, defaultOriginal));
+        Configuration hadoopConf, String key, String defaultOriginal, String newValue) {
+      String existing = hadoopConf.get(key, defaultOriginal);
+      if (CRED_SCOPED_FS_CLASS.equals(existing) || CRED_SCOPED_AFS_CLASS.equals(existing)) {
+        existing = defaultOriginal;
+      }
+      builder.put(key + ".original", existing);
       builder.put(key, newValue);
       return self();
     }
@@ -121,7 +129,7 @@ public class CredPropsUtil {
 
   private static class S3PropsBuilder extends PropsBuilder<S3PropsBuilder> {
 
-    S3PropsBuilder(boolean credScopedFsEnabled, Map<String, String> fsImplProps) {
+    S3PropsBuilder(boolean credScopedFsEnabled, Configuration hadoopConf) {
       // Common properties for S3.
       set("fs.s3a.path.style.access", "true");
       set("fs.s3.impl.disable.cache", "true");
@@ -129,22 +137,22 @@ public class CredPropsUtil {
 
       if (credScopedFsEnabled) {
         saveAndOverride(
-            fsImplProps,
+            hadoopConf,
             "fs.s3.impl",
             "org.apache.hadoop.fs.s3a.S3AFileSystem",
             CRED_SCOPED_FS_CLASS);
         saveAndOverride(
-            fsImplProps,
+            hadoopConf,
             "fs.s3a.impl",
             "org.apache.hadoop.fs.s3a.S3AFileSystem",
             CRED_SCOPED_FS_CLASS);
         saveAndOverride(
-            fsImplProps,
+            hadoopConf,
             "fs.AbstractFileSystem.s3.impl",
             "org.apache.hadoop.fs.s3a.S3A",
             CRED_SCOPED_AFS_CLASS);
         saveAndOverride(
-            fsImplProps,
+            hadoopConf,
             "fs.AbstractFileSystem.s3a.impl",
             "org.apache.hadoop.fs.s3a.S3A",
             CRED_SCOPED_AFS_CLASS);
@@ -159,19 +167,19 @@ public class CredPropsUtil {
 
   private static class GcsPropsBuilder extends PropsBuilder<GcsPropsBuilder> {
 
-    GcsPropsBuilder(boolean credScopedFsEnabled, Map<String, String> fsImplProps) {
+    GcsPropsBuilder(boolean credScopedFsEnabled, Configuration hadoopConf) {
       // Common properties for GCS.
       set("fs.gs.create.items.conflict.check.enable", "true");
       set("fs.gs.impl.disable.cache", "true");
 
       if (credScopedFsEnabled) {
         saveAndOverride(
-            fsImplProps,
+            hadoopConf,
             "fs.gs.impl",
             "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem",
             CRED_SCOPED_FS_CLASS);
         saveAndOverride(
-            fsImplProps,
+            hadoopConf,
             "fs.AbstractFileSystem.gs.impl",
             "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS",
             CRED_SCOPED_AFS_CLASS);
@@ -186,7 +194,7 @@ public class CredPropsUtil {
 
   private static class AbfsPropsBuilder extends PropsBuilder<AbfsPropsBuilder> {
 
-    AbfsPropsBuilder(boolean credScopedFsEnabled, Map<String, String> fsImplProps) {
+    AbfsPropsBuilder(boolean credScopedFsEnabled, Configuration hadoopConf) {
       set(FS_AZURE_ACCOUNT_AUTH_TYPE_PROPERTY_NAME, "SAS");
       set(FS_AZURE_ACCOUNT_IS_HNS_ENABLED, "true");
       set("fs.abfs.impl.disable.cache", "true");
@@ -194,22 +202,22 @@ public class CredPropsUtil {
 
       if (credScopedFsEnabled) {
         saveAndOverride(
-            fsImplProps,
+            hadoopConf,
             "fs.abfs.impl",
             "org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem",
             CRED_SCOPED_FS_CLASS);
         saveAndOverride(
-            fsImplProps,
+            hadoopConf,
             "fs.abfss.impl",
             "org.apache.hadoop.fs.azurebfs.SecureAzureBlobFileSystem",
             CRED_SCOPED_FS_CLASS);
         saveAndOverride(
-            fsImplProps,
+            hadoopConf,
             "fs.AbstractFileSystem.abfs.impl",
             "org.apache.hadoop.fs.azurebfs.Abfs",
             CRED_SCOPED_AFS_CLASS);
         saveAndOverride(
-            fsImplProps,
+            hadoopConf,
             "fs.AbstractFileSystem.abfss.impl",
             "org.apache.hadoop.fs.azurebfs.Abfss",
             CRED_SCOPED_AFS_CLASS);
@@ -223,11 +231,9 @@ public class CredPropsUtil {
   }
 
   private static Map<String, String> s3FixedCredProps(
-      boolean credScopedFsEnabled,
-      Map<String, String> fsImplProps,
-      TemporaryCredentials tempCreds) {
+      boolean credScopedFsEnabled, Configuration hadoopConf, TemporaryCredentials tempCreds) {
     AwsCredentials awsCred = tempCreds.getAwsTempCredentials();
-    return new S3PropsBuilder(credScopedFsEnabled, fsImplProps)
+    return new S3PropsBuilder(credScopedFsEnabled, hadoopConf)
         .set("fs.s3a.access.key", awsCred.getAccessKeyId())
         .set("fs.s3a.secret.key", awsCred.getSecretAccessKey())
         .set("fs.s3a.session.token", awsCred.getSessionToken())
@@ -236,13 +242,13 @@ public class CredPropsUtil {
 
   private static S3PropsBuilder s3TempCredPropsBuilder(
       boolean credScopedFsEnabled,
-      Map<String, String> fsImplProps,
+      Configuration hadoopConf,
       String uri,
       TokenProvider tokenProvider,
       TemporaryCredentials tempCreds) {
     AwsCredentials awsCred = tempCreds.getAwsTempCredentials();
     S3PropsBuilder builder =
-        new S3PropsBuilder(credScopedFsEnabled, fsImplProps)
+        new S3PropsBuilder(credScopedFsEnabled, hadoopConf)
             .set(UCHadoopConf.S3A_CREDENTIALS_PROVIDER, AWS_VENDED_TOKEN_PROVIDER_CLASS)
             .uri(uri)
             .tokenProvider(tokenProvider)
@@ -262,13 +268,13 @@ public class CredPropsUtil {
 
   private static Map<String, String> s3TableTempCredProps(
       boolean credScopedFsEnabled,
-      Map<String, String> fsImplProps,
+      Configuration hadoopConf,
       String uri,
       TokenProvider tokenProvider,
       String tableId,
       TableOperation tableOp,
       TemporaryCredentials tempCreds) {
-    return s3TempCredPropsBuilder(credScopedFsEnabled, fsImplProps, uri, tokenProvider, tempCreds)
+    return s3TempCredPropsBuilder(credScopedFsEnabled, hadoopConf, uri, tokenProvider, tempCreds)
         .credentialType(UCHadoopConf.UC_CREDENTIALS_TYPE_TABLE_VALUE)
         .tableId(tableId)
         .tableOperation(tableOp)
@@ -277,13 +283,13 @@ public class CredPropsUtil {
 
   private static Map<String, String> s3PathTempCredProps(
       boolean credScopedFsEnabled,
-      Map<String, String> fsImplProps,
+      Configuration hadoopConf,
       String uri,
       TokenProvider tokenProvider,
       String path,
       PathOperation pathOp,
       TemporaryCredentials tempCreds) {
-    return s3TempCredPropsBuilder(credScopedFsEnabled, fsImplProps, uri, tokenProvider, tempCreds)
+    return s3TempCredPropsBuilder(credScopedFsEnabled, hadoopConf, uri, tokenProvider, tempCreds)
         .credentialType(UCHadoopConf.UC_CREDENTIALS_TYPE_PATH_VALUE)
         .path(path)
         .pathOperation(pathOp)
@@ -291,13 +297,11 @@ public class CredPropsUtil {
   }
 
   private static Map<String, String> gsFixedCredProps(
-      boolean credScopedFsEnabled,
-      Map<String, String> fsImplProps,
-      TemporaryCredentials tempCreds) {
+      boolean credScopedFsEnabled, Configuration hadoopConf, TemporaryCredentials tempCreds) {
     GcpOauthToken gcpOauthToken = tempCreds.getGcpOauthToken();
     Long expirationTime =
         tempCreds.getExpirationTime() == null ? Long.MAX_VALUE : tempCreds.getExpirationTime();
-    return new GcsPropsBuilder(credScopedFsEnabled, fsImplProps)
+    return new GcsPropsBuilder(credScopedFsEnabled, hadoopConf)
         .set(GCS_ACCESS_TOKEN_KEY, gcpOauthToken.getOauthToken())
         .set(GCS_ACCESS_TOKEN_EXPIRATION_KEY, String.valueOf(expirationTime))
         .build();
@@ -305,13 +309,13 @@ public class CredPropsUtil {
 
   private static GcsPropsBuilder gcsTempCredPropsBuilder(
       boolean credScopedFsEnabled,
-      Map<String, String> fsImplProps,
+      Configuration hadoopConf,
       String uri,
       TokenProvider tokenProvider,
       TemporaryCredentials tempCreds) {
     GcpOauthToken gcpToken = tempCreds.getGcpOauthToken();
     GcsPropsBuilder builder =
-        new GcsPropsBuilder(credScopedFsEnabled, fsImplProps)
+        new GcsPropsBuilder(credScopedFsEnabled, hadoopConf)
             .set("fs.gs.auth.type", "ACCESS_TOKEN_PROVIDER")
             .set("fs.gs.auth.access.token.provider", GCS_VENDED_TOKEN_PROVIDER_CLASS)
             .uri(uri)
@@ -331,13 +335,13 @@ public class CredPropsUtil {
 
   private static Map<String, String> gsTableTempCredProps(
       boolean credScopedFsEnabled,
-      Map<String, String> fsImplProps,
+      Configuration hadoopConf,
       String uri,
       TokenProvider tokenProvider,
       String tableId,
       TableOperation tableOp,
       TemporaryCredentials tempCreds) {
-    return gcsTempCredPropsBuilder(credScopedFsEnabled, fsImplProps, uri, tokenProvider, tempCreds)
+    return gcsTempCredPropsBuilder(credScopedFsEnabled, hadoopConf, uri, tokenProvider, tempCreds)
         .credentialType(UCHadoopConf.UC_CREDENTIALS_TYPE_TABLE_VALUE)
         .tableId(tableId)
         .tableOperation(tableOp)
@@ -346,13 +350,13 @@ public class CredPropsUtil {
 
   private static Map<String, String> gsPathTempCredProps(
       boolean credScopedFsEnabled,
-      Map<String, String> fsImplProps,
+      Configuration hadoopConf,
       String uri,
       TokenProvider tokenProvider,
       String path,
       PathOperation pathOp,
       TemporaryCredentials tempCreds) {
-    return gcsTempCredPropsBuilder(credScopedFsEnabled, fsImplProps, uri, tokenProvider, tempCreds)
+    return gcsTempCredPropsBuilder(credScopedFsEnabled, hadoopConf, uri, tokenProvider, tempCreds)
         .credentialType(UCHadoopConf.UC_CREDENTIALS_TYPE_PATH_VALUE)
         .path(path)
         .pathOperation(pathOp)
@@ -360,24 +364,22 @@ public class CredPropsUtil {
   }
 
   private static Map<String, String> abfsFixedCredProps(
-      boolean credScopedFsEnabled,
-      Map<String, String> fsImplProps,
-      TemporaryCredentials tempCreds) {
+      boolean credScopedFsEnabled, Configuration hadoopConf, TemporaryCredentials tempCreds) {
     AzureUserDelegationSAS azureSas = tempCreds.getAzureUserDelegationSas();
-    return new AbfsPropsBuilder(credScopedFsEnabled, fsImplProps)
+    return new AbfsPropsBuilder(credScopedFsEnabled, hadoopConf)
         .set(ABFS_FIXED_SAS_TOKEN_KEY, azureSas.getSasToken())
         .build();
   }
 
   private static AbfsPropsBuilder abfsTempCredPropsBuilder(
       boolean credScopedFsEnabled,
-      Map<String, String> fsImplProps,
+      Configuration hadoopConf,
       String uri,
       TokenProvider tokenProvider,
       TemporaryCredentials tempCreds) {
     AzureUserDelegationSAS azureSas = tempCreds.getAzureUserDelegationSas();
     AbfsPropsBuilder builder =
-        new AbfsPropsBuilder(credScopedFsEnabled, fsImplProps)
+        new AbfsPropsBuilder(credScopedFsEnabled, hadoopConf)
             .set(FS_AZURE_SAS_TOKEN_PROVIDER_TYPE, ABFS_VENDED_TOKEN_PROVIDER_CLASS)
             .uri(uri)
             .tokenProvider(tokenProvider)
@@ -396,13 +398,13 @@ public class CredPropsUtil {
 
   private static Map<String, String> abfsTableTempCredProps(
       boolean credScopedFsEnabled,
-      Map<String, String> fsImplProps,
+      Configuration hadoopConf,
       String uri,
       TokenProvider tokenProvider,
       String tableId,
       TableOperation tableOp,
       TemporaryCredentials tempCreds) {
-    return abfsTempCredPropsBuilder(credScopedFsEnabled, fsImplProps, uri, tokenProvider, tempCreds)
+    return abfsTempCredPropsBuilder(credScopedFsEnabled, hadoopConf, uri, tokenProvider, tempCreds)
         .credentialType(UCHadoopConf.UC_CREDENTIALS_TYPE_TABLE_VALUE)
         .tableId(tableId)
         .tableOperation(tableOp)
@@ -411,13 +413,13 @@ public class CredPropsUtil {
 
   private static Map<String, String> abfsPathTempCredProps(
       boolean credScopedFsEnabled,
-      Map<String, String> fsImplProps,
+      Configuration hadoopConf,
       String uri,
       TokenProvider tokenProvider,
       String path,
       PathOperation pathOp,
       TemporaryCredentials tempCreds) {
-    return abfsTempCredPropsBuilder(credScopedFsEnabled, fsImplProps, uri, tokenProvider, tempCreds)
+    return abfsTempCredPropsBuilder(credScopedFsEnabled, hadoopConf, uri, tokenProvider, tempCreds)
         .credentialType(UCHadoopConf.UC_CREDENTIALS_TYPE_PATH_VALUE)
         .path(path)
         .pathOperation(pathOp)
@@ -433,13 +435,14 @@ public class CredPropsUtil {
    * @param credScopedFsEnabled when {@code true}, overrides {@code fs.<scheme>.impl} with
    *     CredScopedFileSystem so that filesystem instances are reused per credential scope rather
    *     than created anew for every file access.
-   * @param fsImplProps the existing table/path properties, used to read any previously configured
-   *     {@code fs.<scheme>.impl} values before they are overridden by CredScopedFileSystem.
+   * @param hadoopConf the engine's existing Hadoop configuration, used to read any previously
+   *     configured {@code fs.<scheme>.impl} values before they are overridden by
+   *     CredScopedFileSystem.
    */
   public static Map<String, String> createTableCredProps(
       boolean renewCredEnabled,
       boolean credScopedFsEnabled,
-      Map<String, String> fsImplProps,
+      Configuration hadoopConf,
       String scheme,
       String uri,
       TokenProvider tokenProvider,
@@ -450,24 +453,24 @@ public class CredPropsUtil {
       case "s3":
         if (renewCredEnabled) {
           return s3TableTempCredProps(
-              credScopedFsEnabled, fsImplProps, uri, tokenProvider, tableId, tableOp, tempCreds);
+              credScopedFsEnabled, hadoopConf, uri, tokenProvider, tableId, tableOp, tempCreds);
         } else {
-          return s3FixedCredProps(credScopedFsEnabled, fsImplProps, tempCreds);
+          return s3FixedCredProps(credScopedFsEnabled, hadoopConf, tempCreds);
         }
       case "gs":
         if (renewCredEnabled) {
           return gsTableTempCredProps(
-              credScopedFsEnabled, fsImplProps, uri, tokenProvider, tableId, tableOp, tempCreds);
+              credScopedFsEnabled, hadoopConf, uri, tokenProvider, tableId, tableOp, tempCreds);
         } else {
-          return gsFixedCredProps(credScopedFsEnabled, fsImplProps, tempCreds);
+          return gsFixedCredProps(credScopedFsEnabled, hadoopConf, tempCreds);
         }
       case "abfss":
       case "abfs":
         if (renewCredEnabled) {
           return abfsTableTempCredProps(
-              credScopedFsEnabled, fsImplProps, uri, tokenProvider, tableId, tableOp, tempCreds);
+              credScopedFsEnabled, hadoopConf, uri, tokenProvider, tableId, tableOp, tempCreds);
         } else {
-          return abfsFixedCredProps(credScopedFsEnabled, fsImplProps, tempCreds);
+          return abfsFixedCredProps(credScopedFsEnabled, hadoopConf, tempCreds);
         }
       default:
         return Collections.emptyMap();
@@ -483,13 +486,14 @@ public class CredPropsUtil {
    * @param credScopedFsEnabled when {@code true}, overrides {@code fs.<scheme>.impl} with
    *     CredScopedFileSystem so that filesystem instances are reused per credential scope rather
    *     than created anew for every file access.
-   * @param fsImplProps the existing table/path properties, used to read any previously configured
-   *     {@code fs.<scheme>.impl} values before they are overridden by CredScopedFileSystem.
+   * @param hadoopConf the engine's existing Hadoop configuration, used to read any previously
+   *     configured {@code fs.<scheme>.impl} values before they are overridden by
+   *     CredScopedFileSystem.
    */
   public static Map<String, String> createPathCredProps(
       boolean renewCredEnabled,
       boolean credScopedFsEnabled,
-      Map<String, String> fsImplProps,
+      Configuration hadoopConf,
       String scheme,
       String uri,
       TokenProvider tokenProvider,
@@ -500,24 +504,24 @@ public class CredPropsUtil {
       case "s3":
         if (renewCredEnabled) {
           return s3PathTempCredProps(
-              credScopedFsEnabled, fsImplProps, uri, tokenProvider, path, pathOp, tempCreds);
+              credScopedFsEnabled, hadoopConf, uri, tokenProvider, path, pathOp, tempCreds);
         } else {
-          return s3FixedCredProps(credScopedFsEnabled, fsImplProps, tempCreds);
+          return s3FixedCredProps(credScopedFsEnabled, hadoopConf, tempCreds);
         }
       case "gs":
         if (renewCredEnabled) {
           return gsPathTempCredProps(
-              credScopedFsEnabled, fsImplProps, uri, tokenProvider, path, pathOp, tempCreds);
+              credScopedFsEnabled, hadoopConf, uri, tokenProvider, path, pathOp, tempCreds);
         } else {
-          return gsFixedCredProps(credScopedFsEnabled, fsImplProps, tempCreds);
+          return gsFixedCredProps(credScopedFsEnabled, hadoopConf, tempCreds);
         }
       case "abfss":
       case "abfs":
         if (renewCredEnabled) {
           return abfsPathTempCredProps(
-              credScopedFsEnabled, fsImplProps, uri, tokenProvider, path, pathOp, tempCreds);
+              credScopedFsEnabled, hadoopConf, uri, tokenProvider, path, pathOp, tempCreds);
         } else {
-          return abfsFixedCredProps(credScopedFsEnabled, fsImplProps, tempCreds);
+          return abfsFixedCredProps(credScopedFsEnabled, hadoopConf, tempCreds);
         }
       default:
         return Collections.emptyMap();
