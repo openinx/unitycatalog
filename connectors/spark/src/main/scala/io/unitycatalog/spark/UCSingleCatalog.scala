@@ -5,7 +5,7 @@ import io.unitycatalog.client.auth.TokenProvider
 import io.unitycatalog.client.model.{TableInfo, _}
 import io.unitycatalog.client.retry.JitterDelayRetryPolicy
 import io.unitycatalog.client.{ApiClient, ApiException}
-import io.unitycatalog.hadoop.auth.CredPropsUtil
+import io.unitycatalog.hadoop.internal.auth.CredPropsUtil
 import io.unitycatalog.spark.fs.CredScopedFileSystem
 import io.unitycatalog.spark.auth.AuthConfigUtils
 import io.unitycatalog.spark.utils.OptionsUtil
@@ -443,7 +443,7 @@ object UCSingleCatalog {
   /**
    * Returns any user-configured {@code fs.<scheme>.impl} values from the current Spark session.
    *
-   * Passed to {@link io.unitycatalog.hadoop.auth.CredPropsUtil#saveAndOverride} so it can stash the
+   * Passed to {@link io.unitycatalog.hadoop.internal.auth.CredPropsUtil#saveAndOverride} so it can stash the
    * original impl under {@code fs.<scheme>.impl.original} before replacing it with
    * {@link io.unitycatalog.spark.fs.CredScopedFileSystem}. Without this, the stashed value would
    * default to Hadoop's built-in class, causing {@code CredScopedFileSystem} to ignore any custom

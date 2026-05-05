@@ -10,7 +10,7 @@ import io.unitycatalog.client.model.PathOperation;
 import io.unitycatalog.client.model.TableOperation;
 import io.unitycatalog.client.model.TemporaryCredentials;
 import io.unitycatalog.client.retry.RetryPolicy;
-import io.unitycatalog.hadoop.UCHadoopConf;
+import io.unitycatalog.hadoop.internal.UCHadoopConf;
 import io.unitycatalog.spark.ApiClientFactory;
 import java.net.URI;
 import org.apache.hadoop.conf.Configuration;
