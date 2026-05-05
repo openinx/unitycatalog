@@ -2,6 +2,7 @@ package io.unitycatalog.spark.fs;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.unitycatalog.hadoop.fs.CredScopedKey;
 import io.unitycatalog.spark.UCHadoopConf;
 import java.net.URI;
 import org.apache.hadoop.conf.Configuration;

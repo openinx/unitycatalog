@@ -1,8 +1,8 @@
-package io.unitycatalog.spark.auth;
+package io.unitycatalog.hadoop.auth;
 
-import static io.unitycatalog.spark.UCHadoopConf.FS_AZURE_ACCOUNT_AUTH_TYPE_PROPERTY_NAME;
-import static io.unitycatalog.spark.UCHadoopConf.FS_AZURE_ACCOUNT_IS_HNS_ENABLED;
-import static io.unitycatalog.spark.UCHadoopConf.FS_AZURE_SAS_TOKEN_PROVIDER_TYPE;
+import static io.unitycatalog.hadoop.UCHadoopConf.FS_AZURE_ACCOUNT_AUTH_TYPE_PROPERTY_NAME;
+import static io.unitycatalog.hadoop.UCHadoopConf.FS_AZURE_ACCOUNT_IS_HNS_ENABLED;
+import static io.unitycatalog.hadoop.UCHadoopConf.FS_AZURE_SAS_TOKEN_PROVIDER_TYPE;
 
 import io.unitycatalog.client.auth.TokenProvider;
 import io.unitycatalog.client.model.AwsCredentials;
@@ -11,22 +11,22 @@ import io.unitycatalog.client.model.GcpOauthToken;
 import io.unitycatalog.client.model.PathOperation;
 import io.unitycatalog.client.model.TableOperation;
 import io.unitycatalog.client.model.TemporaryCredentials;
-import io.unitycatalog.spark.UCHadoopConf;
-import io.unitycatalog.spark.auth.storage.AbfsVendedTokenProvider;
-import io.unitycatalog.spark.auth.storage.AwsVendedTokenProvider;
-import io.unitycatalog.spark.auth.storage.GcsVendedTokenProvider;
-import io.unitycatalog.spark.fs.CredScopedFileSystem;
-import io.unitycatalog.spark.fs.CredScopedFs;
+import io.unitycatalog.hadoop.UCHadoopConf;
+import io.unitycatalog.hadoop.auth.storage.AbfsVendedTokenProvider;
+import io.unitycatalog.hadoop.auth.storage.AwsVendedTokenProvider;
+import io.unitycatalog.hadoop.auth.storage.GcsVendedTokenProvider;
+import io.unitycatalog.hadoop.fs.CredScopedFileSystem;
+import io.unitycatalog.hadoop.fs.CredScopedFs;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import org.sparkproject.guava.base.Preconditions;
-import org.sparkproject.guava.collect.ImmutableMap;
 
 public class CredPropsUtil {
   private CredPropsUtil() {}
 
   private abstract static class PropsBuilder<T extends PropsBuilder<T>> {
-    private final ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+    private final HashMap<String, String> builder = new HashMap<>();
 
     public T set(String key, String value) {
       builder.put(key, value);
@@ -53,11 +53,12 @@ public class CredPropsUtil {
     }
 
     public T credentialType(String credType) {
-      Preconditions.checkArgument(
-          UCHadoopConf.UC_CREDENTIALS_TYPE_PATH_VALUE.equals(credType)
-              || UCHadoopConf.UC_CREDENTIALS_TYPE_TABLE_VALUE.equals(credType),
-          "Invalid credential type '%s', must be either 'path' or 'table'.",
-          credType);
+      if (!UCHadoopConf.UC_CREDENTIALS_TYPE_PATH_VALUE.equals(credType)
+          && !UCHadoopConf.UC_CREDENTIALS_TYPE_TABLE_VALUE.equals(credType)) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Invalid credential type '%s', must be either 'path' or 'table'.", credType));
+      }
       builder.put(UCHadoopConf.UC_CREDENTIALS_TYPE_KEY, credType);
       return self();
     }
@@ -98,7 +99,7 @@ public class CredPropsUtil {
     protected abstract T self();
 
     public Map<String, String> build() {
-      return builder.build();
+      return Collections.unmodifiableMap(new HashMap<>(builder));
     }
   }
 
@@ -453,7 +454,7 @@ public class CredPropsUtil {
           return abfsFixedCredProps(credScopedFsEnabled, fsImplProps, tempCreds);
         }
       default:
-        return ImmutableMap.of();
+        return Collections.emptyMap();
     }
   }
 
@@ -503,7 +504,7 @@ public class CredPropsUtil {
           return abfsFixedCredProps(credScopedFsEnabled, fsImplProps, tempCreds);
         }
       default:
-        return ImmutableMap.of();
+        return Collections.emptyMap();
     }
   }
 }

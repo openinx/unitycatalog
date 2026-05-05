@@ -4,6 +4,7 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 import com.google.auth.oauth2.AccessToken;
 import com.google.cloud.hadoop.util.AccessTokenProvider;
+import io.unitycatalog.hadoop.auth.storage.GcsVendedTokenProvider;
 import io.unitycatalog.server.service.credential.gcp.GcpCredentialGenerator;
 import java.time.Instant;
 import java.util.Date;

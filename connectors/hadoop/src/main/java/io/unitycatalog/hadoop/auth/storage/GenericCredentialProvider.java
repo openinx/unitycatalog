@@ -1,4 +1,4 @@
-package io.unitycatalog.spark.auth.storage;
+package io.unitycatalog.hadoop.auth.storage;
 
 import io.unitycatalog.client.ApiException;
 import io.unitycatalog.client.api.TemporaryCredentialsApi;
@@ -10,25 +10,17 @@ import io.unitycatalog.client.model.PathOperation;
 import io.unitycatalog.client.model.TableOperation;
 import io.unitycatalog.client.model.TemporaryCredentials;
 import io.unitycatalog.client.retry.RetryPolicy;
-import io.unitycatalog.spark.ApiClientFactory;
-import io.unitycatalog.spark.UCHadoopConf;
+import io.unitycatalog.hadoop.ApiClientFactory;
+import io.unitycatalog.hadoop.UCHadoopConf;
 import java.net.URI;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.hadoop.conf.Configuration;
-import org.sparkproject.guava.base.Preconditions;
-import org.sparkproject.guava.cache.Cache;
-import org.sparkproject.guava.cache.CacheBuilder;
 
 public abstract class GenericCredentialProvider {
   // The credential cache, for saving QPS to unity catalog server.
-  static final Cache<String, GenericCredential> globalCache;
-  private static final String UC_CREDENTIAL_CACHE_MAX_SIZE =
-      "unitycatalog.credential.cache.maxSize";
-  private static final long UC_CREDENTIAL_CACHE_MAX_SIZE_DEFAULT = 1024;
-
-  static {
-    long maxSize = Long.getLong(UC_CREDENTIAL_CACHE_MAX_SIZE, UC_CREDENTIAL_CACHE_MAX_SIZE_DEFAULT);
-    globalCache = CacheBuilder.newBuilder().maximumSize(maxSize).build();
-  }
+  public static final ConcurrentHashMap<String, GenericCredential> globalCache =
+      new ConcurrentHashMap<>();
 
   private Configuration conf;
   private Clock clock;
@@ -41,7 +33,7 @@ public abstract class GenericCredentialProvider {
   private volatile GenericCredential credential;
   private volatile TemporaryCredentialsApi tempCredApi;
 
-  protected void initialize(Configuration conf) {
+  public void initialize(Configuration conf) {
     this.conf = conf;
 
     // Use the test clock if one is intentionally configured for testing.
@@ -53,18 +45,21 @@ public abstract class GenericCredentialProvider {
             UCHadoopConf.UC_RENEWAL_LEAD_TIME_KEY, UCHadoopConf.UC_RENEWAL_LEAD_TIME_DEFAULT_VALUE);
 
     String ucUriStr = conf.get(UCHadoopConf.UC_URI_KEY);
-    Preconditions.checkNotNull(
-        ucUriStr, "'%s' is not set in hadoop configuration", UCHadoopConf.UC_URI_KEY);
+    Objects.requireNonNull(
+        ucUriStr,
+        String.format("'%s' is not set in hadoop configuration", UCHadoopConf.UC_URI_KEY));
     this.ucUri = URI.create(ucUriStr);
 
     // Initialize the UCTokenProvider.
     this.tokenProvider = TokenProvider.create(conf.getPropsWithPrefix(UCHadoopConf.UC_AUTH_PREFIX));
 
     this.credUid = conf.get(UCHadoopConf.UC_CREDENTIALS_UID_KEY);
-    Preconditions.checkState(
-        credUid != null && !credUid.isEmpty(),
-        "Credential UID cannot be null or empty, '%s' is not set in hadoop configuration",
-        UCHadoopConf.UC_CREDENTIALS_UID_KEY);
+    if (credUid == null || credUid.isEmpty()) {
+      throw new IllegalStateException(
+          String.format(
+              "Credential UID cannot be null or empty, '%s' is not set in hadoop configuration",
+              UCHadoopConf.UC_CREDENTIALS_UID_KEY));
+    }
 
     this.credCacheEnabled =
         conf.getBoolean(
@@ -113,7 +108,7 @@ public abstract class GenericCredentialProvider {
   private GenericCredential renewCredential() throws ApiException {
     if (credCacheEnabled) {
       synchronized (globalCache) {
-        GenericCredential cached = globalCache.getIfPresent(credUid);
+        GenericCredential cached = globalCache.get(credUid);
         // Use the cached one if existing and valid.
         if (cached != null && !cached.readyToRenew(clock, renewalLeadTimeMillis)) {
           return cached;
