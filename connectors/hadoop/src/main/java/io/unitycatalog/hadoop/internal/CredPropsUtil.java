@@ -1,4 +1,4 @@
-package io.unitycatalog.hadoop.internal.auth;
+package io.unitycatalog.hadoop.internal;
 
 import static io.unitycatalog.hadoop.internal.UCHadoopConf.FS_AZURE_ACCOUNT_AUTH_TYPE_PROPERTY_NAME;
 import static io.unitycatalog.hadoop.internal.UCHadoopConf.FS_AZURE_ACCOUNT_IS_HNS_ENABLED;
@@ -12,7 +12,6 @@ import io.unitycatalog.client.model.PathOperation;
 import io.unitycatalog.client.model.TableOperation;
 import io.unitycatalog.client.model.TemporaryCredentials;
 import io.unitycatalog.hadoop.HadoopCredentialConf;
-import io.unitycatalog.hadoop.internal.UCHadoopConf;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;

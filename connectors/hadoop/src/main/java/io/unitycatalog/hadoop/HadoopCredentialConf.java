@@ -5,7 +5,7 @@ import io.unitycatalog.client.internal.Preconditions;
 import io.unitycatalog.client.model.PathOperation;
 import io.unitycatalog.client.model.TableOperation;
 import io.unitycatalog.client.model.TemporaryCredentials;
-import io.unitycatalog.hadoop.internal.auth.CredPropsUtil;
+import io.unitycatalog.hadoop.internal.CredPropsUtil;
 import java.util.Map;
 import org.apache.hadoop.conf.Configuration;
 
@@ -60,10 +60,11 @@ public final class HadoopCredentialConf {
    */
   public static final class Builder {
 
-    private String catalogUri;
+    private final String catalogUri;
+    private final String scheme;
+
     private TokenProvider tokenProvider;
     private TemporaryCredentials initialCredentials;
-    private String scheme;
     private boolean credentialRenewalEnabled = true;
     private boolean credentialScopedFsEnabled = true;
     private Configuration hadoopConf = new Configuration(false);
@@ -86,8 +87,8 @@ public final class HadoopCredentialConf {
 
     /**
      * (Required) The initial temporary credentials vended by UC (AWS session credentials, GCP OAuth
-     * token, or Azure SAS). Typically allocated once by the job driver and propagated to all worker
-     * nodes so that each worker reuses the same credential rather than vending a new one.
+     * token, or Azure SAS). Typically, allocated once by the job driver and propagated to all
+     * worker nodes so that each worker reuses the same credential rather than vending a new one.
      */
     public Builder initialCredentials(TemporaryCredentials initialCredentials) {
       this.initialCredentials = initialCredentials;
@@ -165,13 +166,10 @@ public final class HadoopCredentialConf {
     }
 
     private void validate() {
-      if (credentialRenewalEnabled && tokenProvider == null) {
-        throw new IllegalStateException(
-            "tokenProvider is required when credential renewal is enabled");
-      }
-      if (initialCredentials == null) {
-        throw new IllegalStateException("initialCredentials is required");
-      }
+      Preconditions.checkState(
+          !credentialRenewalEnabled || tokenProvider != null,
+          "tokenProvider is required when credential renewal is enabled");
+      Preconditions.checkState(initialCredentials != null, "initialCredentials is required");
     }
   }
 }

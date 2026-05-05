@@ -155,9 +155,7 @@ class HadoopCredentialConfTest {
   @Test
   void returnedMapIsUnmodifiable() {
     Map<String, String> props =
-        staticBuilder("s3")
-            .initialCredentials(s3Creds())
-            .buildForTable("tid", TableOperation.READ);
+        staticBuilder("s3").initialCredentials(s3Creds()).buildForTable("tid", TableOperation.READ);
 
     assertThatThrownBy(() -> props.put("k", "v")).isInstanceOf(UnsupportedOperationException.class);
   }
