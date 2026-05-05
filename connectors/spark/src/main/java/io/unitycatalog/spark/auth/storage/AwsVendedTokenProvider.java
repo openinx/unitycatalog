@@ -1,8 +1,8 @@
-package io.unitycatalog.hadoop.auth.storage;
+package io.unitycatalog.spark.auth.storage;
 
-import io.unitycatalog.hadoop.UCHadoopConf;
-import java.util.Objects;
+import io.unitycatalog.spark.UCHadoopConf;
 import org.apache.hadoop.conf.Configuration;
+import org.sparkproject.guava.base.Preconditions;
 import software.amazon.awssdk.auth.credentials.AwsCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
@@ -29,12 +29,11 @@ public class AwsVendedTokenProvider extends GenericCredentialProvider
 
       long expiredTimeMillis =
           conf.getLong(UCHadoopConf.S3A_INIT_CRED_EXPIRED_TIME, Long.MAX_VALUE);
-      if (expiredTimeMillis <= 0) {
-        throw new IllegalStateException(
-            String.format(
-                "Expired time %d must be greater than 0, please check configure key '%s'",
-                expiredTimeMillis, UCHadoopConf.S3A_INIT_CRED_EXPIRED_TIME));
-      }
+      Preconditions.checkState(
+          expiredTimeMillis > 0,
+          "Expired time %s must be greater than 0, " + "please check configure key '%s'",
+          expiredTimeMillis,
+          UCHadoopConf.S3A_INIT_CRED_EXPIRED_TIME);
 
       return GenericCredential.forAws(accessKey, secretKey, sessionToken, expiredTimeMillis);
     } else {
@@ -49,7 +48,7 @@ public class AwsVendedTokenProvider extends GenericCredentialProvider
     // Wrap the GenericCredential as an AwsCredentials.
     io.unitycatalog.client.model.AwsCredentials awsTempCred =
         generic.temporaryCredentials().getAwsTempCredentials();
-    Objects.requireNonNull(
+    Preconditions.checkNotNull(
         awsTempCred, "AWS temp credential of generic credentials cannot be null");
 
     return AwsSessionCredentials.builder()

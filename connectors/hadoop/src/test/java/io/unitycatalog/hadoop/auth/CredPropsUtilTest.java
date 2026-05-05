@@ -13,9 +13,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Verifies that {@link CredPropsUtil} saves the original {@code fs.<scheme>.impl} values under
- * {@code fs.<scheme>.impl.original} before overriding them with {@link
- * io.unitycatalog.hadoop.fs.CredScopedFileSystem}, so that the real delegate can be restored in
- * {@code CredScopedFileSystem#newFileSystem}.
+ * {@code fs.<scheme>.impl.original} before overriding them with CredScopedFileSystem, so that the
+ * real delegate can be restored in {@code CredScopedFileSystem#newFileSystem}.
  */
 class CredPropsUtilTest {
 

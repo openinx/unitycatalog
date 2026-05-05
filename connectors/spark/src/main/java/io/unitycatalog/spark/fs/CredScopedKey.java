@@ -1,6 +1,6 @@
-package io.unitycatalog.hadoop.fs;
+package io.unitycatalog.spark.fs;
 
-import io.unitycatalog.hadoop.UCHadoopConf;
+import io.unitycatalog.spark.UCHadoopConf;
 import java.net.URI;
 import java.util.Objects;
 import org.apache.hadoop.conf.Configuration;

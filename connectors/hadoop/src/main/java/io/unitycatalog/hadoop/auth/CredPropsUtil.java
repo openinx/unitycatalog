@@ -12,11 +12,6 @@ import io.unitycatalog.client.model.PathOperation;
 import io.unitycatalog.client.model.TableOperation;
 import io.unitycatalog.client.model.TemporaryCredentials;
 import io.unitycatalog.hadoop.UCHadoopConf;
-import io.unitycatalog.hadoop.auth.storage.AbfsVendedTokenProvider;
-import io.unitycatalog.hadoop.auth.storage.AwsVendedTokenProvider;
-import io.unitycatalog.hadoop.auth.storage.GcsVendedTokenProvider;
-import io.unitycatalog.hadoop.fs.CredScopedFileSystem;
-import io.unitycatalog.hadoop.fs.CredScopedFs;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -24,6 +19,20 @@ import java.util.UUID;
 
 public class CredPropsUtil {
   private CredPropsUtil() {}
+
+  private static final String CRED_SCOPED_FS_CLASS =
+      "io.unitycatalog.spark.fs.CredScopedFileSystem";
+  private static final String CRED_SCOPED_AFS_CLASS = "io.unitycatalog.spark.fs.CredScopedFs";
+  private static final String AWS_VENDED_TOKEN_PROVIDER_CLASS =
+      "io.unitycatalog.spark.auth.storage.AwsVendedTokenProvider";
+  private static final String GCS_VENDED_TOKEN_PROVIDER_CLASS =
+      "io.unitycatalog.spark.auth.storage.GcsVendedTokenProvider";
+  private static final String ABFS_VENDED_TOKEN_PROVIDER_CLASS =
+      "io.unitycatalog.spark.auth.storage.AbfsVendedTokenProvider";
+  private static final String GCS_ACCESS_TOKEN_KEY = "fs.gs.auth.access.token.credential";
+  private static final String GCS_ACCESS_TOKEN_EXPIRATION_KEY =
+      "fs.gs.auth.access.token.expiration";
+  private static final String ABFS_FIXED_SAS_TOKEN_KEY = "fs.azure.sas.fixed.token";
 
   private abstract static class PropsBuilder<T extends PropsBuilder<T>> {
     private final HashMap<String, String> builder = new HashMap<>();
@@ -86,7 +95,7 @@ public class CredPropsUtil {
     /**
      * Saves the current value of {@code key} from {@code fsImplProps} (falling back to {@code
      * defaultOriginal}) under {@code key + ".original"}, then overrides {@code key} with {@code
-     * newValue}. This lets {@link CredScopedFileSystem#newFileSystem} restore the real delegate
+     * newValue}. This lets CredScopedFileSystem#newFileSystem restore the real delegate
      * implementation after the wrapper has been installed.
      */
     public T saveAndOverride(
@@ -116,22 +125,22 @@ public class CredPropsUtil {
             fsImplProps,
             "fs.s3.impl",
             "org.apache.hadoop.fs.s3a.S3AFileSystem",
-            CredScopedFileSystem.class.getName());
+            CRED_SCOPED_FS_CLASS);
         saveAndOverride(
             fsImplProps,
             "fs.s3a.impl",
             "org.apache.hadoop.fs.s3a.S3AFileSystem",
-            CredScopedFileSystem.class.getName());
+            CRED_SCOPED_FS_CLASS);
         saveAndOverride(
             fsImplProps,
             "fs.AbstractFileSystem.s3.impl",
             "org.apache.hadoop.fs.s3a.S3A",
-            CredScopedFs.class.getName());
+            CRED_SCOPED_AFS_CLASS);
         saveAndOverride(
             fsImplProps,
             "fs.AbstractFileSystem.s3a.impl",
             "org.apache.hadoop.fs.s3a.S3A",
-            CredScopedFs.class.getName());
+            CRED_SCOPED_AFS_CLASS);
       }
     }
 
@@ -153,12 +162,12 @@ public class CredPropsUtil {
             fsImplProps,
             "fs.gs.impl",
             "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem",
-            CredScopedFileSystem.class.getName());
+            CRED_SCOPED_FS_CLASS);
         saveAndOverride(
             fsImplProps,
             "fs.AbstractFileSystem.gs.impl",
             "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS",
-            CredScopedFs.class.getName());
+            CRED_SCOPED_AFS_CLASS);
       }
     }
 
@@ -181,22 +190,22 @@ public class CredPropsUtil {
             fsImplProps,
             "fs.abfs.impl",
             "org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem",
-            CredScopedFileSystem.class.getName());
+            CRED_SCOPED_FS_CLASS);
         saveAndOverride(
             fsImplProps,
             "fs.abfss.impl",
             "org.apache.hadoop.fs.azurebfs.SecureAzureBlobFileSystem",
-            CredScopedFileSystem.class.getName());
+            CRED_SCOPED_FS_CLASS);
         saveAndOverride(
             fsImplProps,
             "fs.AbstractFileSystem.abfs.impl",
             "org.apache.hadoop.fs.azurebfs.Abfs",
-            CredScopedFs.class.getName());
+            CRED_SCOPED_AFS_CLASS);
         saveAndOverride(
             fsImplProps,
             "fs.AbstractFileSystem.abfss.impl",
             "org.apache.hadoop.fs.azurebfs.Abfss",
-            CredScopedFs.class.getName());
+            CRED_SCOPED_AFS_CLASS);
       }
     }
 
@@ -227,7 +236,7 @@ public class CredPropsUtil {
     AwsCredentials awsCred = tempCreds.getAwsTempCredentials();
     S3PropsBuilder builder =
         new S3PropsBuilder(credScopedFsEnabled, fsImplProps)
-            .set(UCHadoopConf.S3A_CREDENTIALS_PROVIDER, AwsVendedTokenProvider.class.getName())
+            .set(UCHadoopConf.S3A_CREDENTIALS_PROVIDER, AWS_VENDED_TOKEN_PROVIDER_CLASS)
             .uri(uri)
             .tokenProvider(tokenProvider)
             .uid(UUID.randomUUID().toString())
@@ -282,8 +291,8 @@ public class CredPropsUtil {
     Long expirationTime =
         tempCreds.getExpirationTime() == null ? Long.MAX_VALUE : tempCreds.getExpirationTime();
     return new GcsPropsBuilder(credScopedFsEnabled, fsImplProps)
-        .set(GcsVendedTokenProvider.ACCESS_TOKEN_KEY, gcpOauthToken.getOauthToken())
-        .set(GcsVendedTokenProvider.ACCESS_TOKEN_EXPIRATION_KEY, String.valueOf(expirationTime))
+        .set(GCS_ACCESS_TOKEN_KEY, gcpOauthToken.getOauthToken())
+        .set(GCS_ACCESS_TOKEN_EXPIRATION_KEY, String.valueOf(expirationTime))
         .build();
   }
 
@@ -297,7 +306,7 @@ public class CredPropsUtil {
     GcsPropsBuilder builder =
         new GcsPropsBuilder(credScopedFsEnabled, fsImplProps)
             .set("fs.gs.auth.type", "ACCESS_TOKEN_PROVIDER")
-            .set("fs.gs.auth.access.token.provider", GcsVendedTokenProvider.class.getName())
+            .set("fs.gs.auth.access.token.provider", GCS_VENDED_TOKEN_PROVIDER_CLASS)
             .uri(uri)
             .tokenProvider(tokenProvider)
             .uid(UUID.randomUUID().toString())
@@ -349,7 +358,7 @@ public class CredPropsUtil {
       TemporaryCredentials tempCreds) {
     AzureUserDelegationSAS azureSas = tempCreds.getAzureUserDelegationSas();
     return new AbfsPropsBuilder(credScopedFsEnabled, fsImplProps)
-        .set(AbfsVendedTokenProvider.ACCESS_TOKEN_KEY, azureSas.getSasToken())
+        .set(ABFS_FIXED_SAS_TOKEN_KEY, azureSas.getSasToken())
         .build();
   }
 
@@ -362,7 +371,7 @@ public class CredPropsUtil {
     AzureUserDelegationSAS azureSas = tempCreds.getAzureUserDelegationSas();
     AbfsPropsBuilder builder =
         new AbfsPropsBuilder(credScopedFsEnabled, fsImplProps)
-            .set(FS_AZURE_SAS_TOKEN_PROVIDER_TYPE, AbfsVendedTokenProvider.class.getName())
+            .set(FS_AZURE_SAS_TOKEN_PROVIDER_TYPE, ABFS_VENDED_TOKEN_PROVIDER_CLASS)
             .uri(uri)
             .tokenProvider(tokenProvider)
             .uid(UUID.randomUUID().toString())
@@ -414,11 +423,11 @@ public class CredPropsUtil {
    * @param renewCredEnabled when {@code true}, configures a vended-token provider that
    *     automatically refreshes credentials before expiry; when {@code false}, embeds the initial
    *     credentials as static keys.
-   * @param credScopedFsEnabled when {@code true}, overrides {@code fs.<scheme>.impl} with {@link
-   *     CredScopedFileSystem} so that filesystem instances are reused per credential scope rather
+   * @param credScopedFsEnabled when {@code true}, overrides {@code fs.<scheme>.impl} with
+   *     CredScopedFileSystem so that filesystem instances are reused per credential scope rather
    *     than created anew for every file access.
    * @param fsImplProps the existing table/path properties, used to read any previously configured
-   *     {@code fs.<scheme>.impl} values before they are overridden by {@link CredScopedFileSystem}.
+   *     {@code fs.<scheme>.impl} values before they are overridden by CredScopedFileSystem.
    */
   public static Map<String, String> createTableCredProps(
       boolean renewCredEnabled,
@@ -464,11 +473,11 @@ public class CredPropsUtil {
    * @param renewCredEnabled when {@code true}, configures a vended-token provider that
    *     automatically refreshes credentials before expiry; when {@code false}, embeds the initial
    *     credentials as static keys.
-   * @param credScopedFsEnabled when {@code true}, overrides {@code fs.<scheme>.impl} with {@link
-   *     CredScopedFileSystem} so that filesystem instances are reused per credential scope rather
+   * @param credScopedFsEnabled when {@code true}, overrides {@code fs.<scheme>.impl} with
+   *     CredScopedFileSystem so that filesystem instances are reused per credential scope rather
    *     than created anew for every file access.
    * @param fsImplProps the existing table/path properties, used to read any previously configured
-   *     {@code fs.<scheme>.impl} values before they are overridden by {@link CredScopedFileSystem}.
+   *     {@code fs.<scheme>.impl} values before they are overridden by CredScopedFileSystem.
    */
   public static Map<String, String> createPathCredProps(
       boolean renewCredEnabled,

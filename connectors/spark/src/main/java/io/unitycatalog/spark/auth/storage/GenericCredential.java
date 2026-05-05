@@ -1,4 +1,4 @@
-package io.unitycatalog.hadoop.auth.storage;
+package io.unitycatalog.spark.auth.storage;
 
 import io.unitycatalog.client.internal.Clock;
 import io.unitycatalog.client.model.AwsCredentials;

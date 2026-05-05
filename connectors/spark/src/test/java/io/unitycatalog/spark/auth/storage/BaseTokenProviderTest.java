@@ -10,8 +10,6 @@ import io.unitycatalog.client.internal.Clock;
 import io.unitycatalog.client.model.PathOperation;
 import io.unitycatalog.client.model.TableOperation;
 import io.unitycatalog.client.model.TemporaryCredentials;
-import io.unitycatalog.hadoop.auth.storage.GenericCredential;
-import io.unitycatalog.hadoop.auth.storage.GenericCredentialProvider;
 import io.unitycatalog.spark.UCHadoopConf;
 import java.time.Duration;
 import java.util.UUID;
@@ -40,7 +38,7 @@ public abstract class BaseTokenProviderTest<T extends GenericCredentialProvider>
   public void before() {
     clockName = UUID.randomUUID().toString();
     clock = Clock.getManualClock(clockName);
-    GenericCredentialProvider.globalCache.clear();
+    GenericCredentialProvider.globalCache.invalidateAll();
   }
 
   @AfterEach
@@ -48,7 +46,7 @@ public abstract class BaseTokenProviderTest<T extends GenericCredentialProvider>
     Clock.removeManualClock(clockName);
     clock = null;
     clockName = null;
-    GenericCredentialProvider.globalCache.clear();
+    GenericCredentialProvider.globalCache.invalidateAll();
   }
 
   @Test
@@ -310,7 +308,7 @@ public abstract class BaseTokenProviderTest<T extends GenericCredentialProvider>
     assertThat(expectedSize).isEqualTo(creds.length);
     assertThat(GenericCredentialProvider.globalCache.size()).isEqualTo(expectedSize);
     for (TemporaryCredentials cred : creds) {
-      assertThat(GenericCredentialProvider.globalCache.values())
+      assertThat(GenericCredentialProvider.globalCache.asMap().values())
           .contains(new GenericCredential(cred));
     }
   }
