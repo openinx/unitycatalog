@@ -17,6 +17,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Internal utility that builds cloud-provider-specific Hadoop configuration properties for
+ * Unity-Catalog-vended credentials.
+ *
+ * <p><b>This is an internal class and is not part of the public API.</b> Use {@link
+ * io.unitycatalog.hadoop.CredentialSetting} instead.
+ */
 public class CredPropsUtil {
   private CredPropsUtil() {}
 
