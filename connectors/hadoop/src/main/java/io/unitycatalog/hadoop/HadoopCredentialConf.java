@@ -1,6 +1,7 @@
 package io.unitycatalog.hadoop;
 
 import io.unitycatalog.client.auth.TokenProvider;
+import io.unitycatalog.client.internal.Preconditions;
 import io.unitycatalog.client.model.PathOperation;
 import io.unitycatalog.client.model.TableOperation;
 import io.unitycatalog.client.model.TemporaryCredentials;
@@ -68,8 +69,8 @@ public final class HadoopCredentialConf {
     private Configuration hadoopConf = new Configuration(false);
 
     private Builder(String uri, String scheme) {
-      if (uri == null) throw new IllegalArgumentException("catalogUri is required");
-      if (scheme == null) throw new IllegalArgumentException("scheme is required");
+      Preconditions.checkArgument(uri != null, "catalogUri is required");
+      Preconditions.checkArgument(scheme != null, "scheme is required");
       this.catalogUri = uri;
       this.scheme = scheme;
     }
