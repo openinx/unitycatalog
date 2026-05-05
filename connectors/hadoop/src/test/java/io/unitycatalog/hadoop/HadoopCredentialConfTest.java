@@ -166,25 +166,15 @@ class HadoopCredentialConfTest {
 
   @Test
   void missingCatalogUriThrows() {
-    assertThatThrownBy(
-            () ->
-                HadoopCredentialConf.builder(null, "s3")
-                    .enableCredentialRenewal(false)
-                    .initialCredentials(s3Creds())
-                    .buildForTable("tid", TableOperation.READ))
-        .isInstanceOf(IllegalStateException.class)
+    assertThatThrownBy(() -> HadoopCredentialConf.builder(null, "s3"))
+        .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("catalogUri");
   }
 
   @Test
   void missingSchemeThrows() {
-    assertThatThrownBy(
-            () ->
-                HadoopCredentialConf.builder("http://uc", null)
-                    .enableCredentialRenewal(false)
-                    .initialCredentials(s3Creds())
-                    .buildForTable("tid", TableOperation.READ))
-        .isInstanceOf(IllegalStateException.class)
+    assertThatThrownBy(() -> HadoopCredentialConf.builder("http://uc", null))
+        .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("scheme");
   }
 

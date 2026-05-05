@@ -68,6 +68,8 @@ public final class HadoopCredentialConf {
     private Configuration hadoopConf = new Configuration(false);
 
     private Builder(String uri, String scheme) {
+      if (uri == null) throw new IllegalArgumentException("catalogUri is required");
+      if (scheme == null) throw new IllegalArgumentException("scheme is required");
       this.catalogUri = uri;
       this.scheme = scheme;
     }
@@ -162,18 +164,12 @@ public final class HadoopCredentialConf {
     }
 
     private void validate() {
-      if (catalogUri == null) {
-        throw new IllegalStateException("catalogUri is required");
-      }
       if (credentialRenewalEnabled && tokenProvider == null) {
         throw new IllegalStateException(
             "tokenProvider is required when credential renewal is enabled");
       }
       if (initialCredentials == null) {
         throw new IllegalStateException("initialCredentials is required");
-      }
-      if (scheme == null) {
-        throw new IllegalStateException("scheme is required");
       }
     }
   }
