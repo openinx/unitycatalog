@@ -13,7 +13,7 @@ import java.util.Map;
 import org.apache.hadoop.conf.Configuration;
 import org.junit.jupiter.api.Test;
 
-class CredentialSettingTest {
+class HadoopCredentialConfTest {
 
   private static final String S3A_FS = "org.apache.hadoop.fs.s3a.S3AFileSystem";
   private static final String GCS_FS = "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem";
@@ -26,9 +26,8 @@ class CredentialSettingTest {
   @Test
   void s3TableStaticCredentials() {
     Map<String, String> props =
-        staticBuilder()
+        staticBuilder("s3")
             .initialCredentials(s3Creds())
-            .scheme("s3")
             .buildForTable("tid", TableOperation.READ_WRITE);
 
     assertThat(props)
@@ -40,9 +39,8 @@ class CredentialSettingTest {
   @Test
   void s3TableWithCredScopedFs() {
     Map<String, String> props =
-        staticBuilder()
+        staticBuilder("s3")
             .initialCredentials(s3Creds())
-            .scheme("s3")
             .enableCredentialScopedFs(true)
             .buildForTable("tid", TableOperation.READ_WRITE);
 
@@ -58,9 +56,8 @@ class CredentialSettingTest {
     conf.set("fs.s3a.impl", "com.example.Custom");
 
     Map<String, String> props =
-        staticBuilder()
+        staticBuilder("s3")
             .initialCredentials(s3Creds())
-            .scheme("s3")
             .enableCredentialScopedFs(true)
             .hadoopConf(conf)
             .buildForTable("tid", TableOperation.READ_WRITE);
@@ -73,9 +70,8 @@ class CredentialSettingTest {
   @Test
   void s3PathCredentials() {
     Map<String, String> props =
-        staticBuilder()
+        staticBuilder("s3")
             .initialCredentials(s3Creds())
-            .scheme("s3")
             .buildForPath("s3://bucket/path", PathOperation.PATH_READ);
 
     assertThat(props).containsEntry("fs.s3a.access.key", "ak");
@@ -86,9 +82,8 @@ class CredentialSettingTest {
   @Test
   void gsTableStaticCredentials() {
     Map<String, String> props =
-        staticBuilder()
+        staticBuilder("gs")
             .initialCredentials(gcsCreds())
-            .scheme("gs")
             .buildForTable("tid", TableOperation.READ);
 
     assertThat(props).containsEntry("fs.gs.auth.access.token.credential", "gcs-token");
@@ -97,9 +92,8 @@ class CredentialSettingTest {
   @Test
   void gsTableWithCredScopedFs() {
     Map<String, String> props =
-        staticBuilder()
+        staticBuilder("gs")
             .initialCredentials(gcsCreds())
-            .scheme("gs")
             .enableCredentialScopedFs(true)
             .buildForTable("tid", TableOperation.READ);
 
@@ -111,9 +105,8 @@ class CredentialSettingTest {
   @Test
   void abfsTableStaticCredentials() {
     Map<String, String> props =
-        staticBuilder()
+        staticBuilder("abfs")
             .initialCredentials(abfsCreds())
-            .scheme("abfs")
             .buildForTable("tid", TableOperation.READ_WRITE);
 
     assertThat(props)
@@ -124,9 +117,8 @@ class CredentialSettingTest {
   @Test
   void abfssTableWithCredScopedFs() {
     Map<String, String> props =
-        staticBuilder()
+        staticBuilder("abfss")
             .initialCredentials(abfsCreds())
-            .scheme("abfss")
             .enableCredentialScopedFs(true)
             .buildForTable("tid", TableOperation.READ_WRITE);
 
@@ -140,9 +132,8 @@ class CredentialSettingTest {
   @Test
   void unknownSchemeReturnsEmptyMap() {
     Map<String, String> props =
-        staticBuilder()
+        staticBuilder("hdfs")
             .initialCredentials(s3Creds())
-            .scheme("hdfs")
             .buildForTable("tid", TableOperation.READ);
 
     assertThat(props).isEmpty();
@@ -151,9 +142,8 @@ class CredentialSettingTest {
   @Test
   void credScopedFsDisabledNoOriginalKeys() {
     Map<String, String> props =
-        staticBuilder()
+        staticBuilder("s3")
             .initialCredentials(s3Creds())
-            .scheme("s3")
             .enableCredentialScopedFs(false)
             .buildForTable("tid", TableOperation.READ);
 
@@ -165,9 +155,8 @@ class CredentialSettingTest {
   @Test
   void returnedMapIsUnmodifiable() {
     Map<String, String> props =
-        staticBuilder()
+        staticBuilder("s3")
             .initialCredentials(s3Creds())
-            .scheme("s3")
             .buildForTable("tid", TableOperation.READ);
 
     assertThatThrownBy(() -> props.put("k", "v")).isInstanceOf(UnsupportedOperationException.class);
@@ -179,10 +168,9 @@ class CredentialSettingTest {
   void missingCatalogUriThrows() {
     assertThatThrownBy(
             () ->
-                CredentialSetting.builder()
+                HadoopCredentialConf.builder(null, "s3")
                     .enableCredentialRenewal(false)
                     .initialCredentials(s3Creds())
-                    .scheme("s3")
                     .buildForTable("tid", TableOperation.READ))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("catalogUri");
@@ -192,7 +180,8 @@ class CredentialSettingTest {
   void missingSchemeThrows() {
     assertThatThrownBy(
             () ->
-                staticBuilder()
+                HadoopCredentialConf.builder("http://uc", null)
+                    .enableCredentialRenewal(false)
                     .initialCredentials(s3Creds())
                     .buildForTable("tid", TableOperation.READ))
         .isInstanceOf(IllegalStateException.class)
@@ -201,7 +190,7 @@ class CredentialSettingTest {
 
   @Test
   void missingInitialCredentialsThrows() {
-    assertThatThrownBy(() -> staticBuilder().scheme("s3").buildForTable("tid", TableOperation.READ))
+    assertThatThrownBy(() -> staticBuilder("s3").buildForTable("tid", TableOperation.READ))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("initialCredentials");
   }
@@ -210,10 +199,8 @@ class CredentialSettingTest {
   void missingTokenProviderWithRenewalThrows() {
     assertThatThrownBy(
             () ->
-                CredentialSetting.builder()
-                    .catalogUri("http://uc")
+                HadoopCredentialConf.builder("http://uc", "s3")
                     .initialCredentials(s3Creds())
-                    .scheme("s3")
                     .buildForTable("tid", TableOperation.READ))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("tokenProvider");
@@ -222,8 +209,8 @@ class CredentialSettingTest {
   // ------- Helpers -------
 
   /** Builder with credential renewal disabled (static creds). */
-  private static CredentialSetting.Builder staticBuilder() {
-    return CredentialSetting.builder().catalogUri("http://uc").enableCredentialRenewal(false);
+  private static HadoopCredentialConf.Builder staticBuilder(String scheme) {
+    return HadoopCredentialConf.builder("http://uc", scheme).enableCredentialRenewal(false);
   }
 
   private static TemporaryCredentials s3Creds() {

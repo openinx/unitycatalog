@@ -11,6 +11,7 @@ import io.unitycatalog.client.model.GcpOauthToken;
 import io.unitycatalog.client.model.PathOperation;
 import io.unitycatalog.client.model.TableOperation;
 import io.unitycatalog.client.model.TemporaryCredentials;
+import io.unitycatalog.hadoop.HadoopCredentialConf;
 import io.unitycatalog.hadoop.internal.UCHadoopConf;
 import java.util.Collections;
 import java.util.HashMap;
@@ -23,7 +24,7 @@ import org.apache.hadoop.conf.Configuration;
  * Unity-Catalog-vended credentials.
  *
  * <p><b>This is an internal class and is not part of the public API.</b> Use {@link
- * io.unitycatalog.hadoop.CredentialSetting} instead.
+ * HadoopCredentialConf} instead.
  */
 public class CredPropsUtil {
   private CredPropsUtil() {}

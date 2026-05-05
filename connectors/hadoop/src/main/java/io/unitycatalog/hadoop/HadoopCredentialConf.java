@@ -13,38 +13,47 @@ import org.apache.hadoop.conf.Configuration;
  * inject so that cloud storage can be accessed with Unity-Catalog-vended credentials.
  *
  * <pre>{@code
- * Map<String, String> props = CredentialSetting.builder()
- *     .catalogUri(uri)
+ * Map<String, String> props = HadoopCredentialConf.builder(uri, "s3")
  *     .tokenProvider(tokenProvider)
  *     .initialCredentials(creds)
- *     .scheme("s3")
  *     .enableCredentialRenewal(true)
  *     .enableCredentialScopedFs(true)
- *     .existingFsImplProperties(sessionFsImplProps)
+ *     .hadoopConf(hadoopConf)
  *     .buildForTable(tableId, TableOperation.READ_WRITE);
  * }</pre>
  *
  * @since 0.5.0
  */
-public final class CredentialSetting {
+public final class HadoopCredentialConf {
 
-  private CredentialSetting() {}
+  private HadoopCredentialConf() {}
 
-  /** Creates a new {@link Builder}. */
-  public static Builder builder() {
-    return new Builder();
+  /**
+   * Creates a new {@link Builder} with the two required fields.
+   *
+   * @param catalogUri the Unity Catalog server base URI, e.g. {@code "https://my-uc-server"}
+   * @param scheme the storage URI scheme ({@code "s3"}, {@code "gs"}, {@code "abfs"}, or {@code
+   *     "abfss"})
+   */
+  public static Builder builder(String catalogUri, String scheme) {
+    return new Builder(catalogUri, scheme);
   }
 
   /**
    * Collects credential settings and produces Hadoop configuration properties via {@link
    * #buildForTable} or {@link #buildForPath}.
    *
-   * <p>Required fields:
+   * <p>Required fields (passed to {@link HadoopCredentialConf#builder}):
    *
    * <ul>
    *   <li>{@link #catalogUri}
-   *   <li>{@link #initialCredentials}
    *   <li>{@link #scheme}
+   * </ul>
+   *
+   * <p>Additional required fields (set via builder methods):
+   *
+   * <ul>
+   *   <li>{@link #initialCredentials}
    *   <li>{@link #tokenProvider} — only when {@link #enableCredentialRenewal} is {@code true}
    * </ul>
    */
@@ -58,15 +67,9 @@ public final class CredentialSetting {
     private boolean credentialScopedFsEnabled = true;
     private Configuration hadoopConf = new Configuration(false);
 
-    private Builder() {}
-
-    /**
-     * (Required) The Unity Catalog server base URI, e.g. {@code "https://my-uc-server"}. Do not
-     * include the API path suffix ({@code /api/2.1/unity-catalog}); it is appended automatically.
-     */
-    public Builder catalogUri(String uri) {
+    private Builder(String uri, String scheme) {
       this.catalogUri = uri;
-      return this;
+      this.scheme = scheme;
     }
 
     /**
@@ -85,15 +88,6 @@ public final class CredentialSetting {
      */
     public Builder initialCredentials(TemporaryCredentials initialCredentials) {
       this.initialCredentials = initialCredentials;
-      return this;
-    }
-
-    /**
-     * (Required) The storage URI scheme ({@code "s3"}, {@code "gs"}, {@code "abfs"}, or {@code
-     * "abfss"}). Unrecognized schemes produce an empty map.
-     */
-    public Builder scheme(String scheme) {
-      this.scheme = scheme;
       return this;
     }
 
@@ -173,7 +167,7 @@ public final class CredentialSetting {
       }
       if (credentialRenewalEnabled && tokenProvider == null) {
         throw new IllegalStateException(
-            "tokenProvider is required when credential " + "renewal is enabled");
+            "tokenProvider is required when credential renewal is enabled");
       }
       if (initialCredentials == null) {
         throw new IllegalStateException("initialCredentials is required");
