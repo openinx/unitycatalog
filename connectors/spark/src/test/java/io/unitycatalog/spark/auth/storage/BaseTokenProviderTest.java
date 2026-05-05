@@ -10,7 +10,7 @@ import io.unitycatalog.client.internal.Clock;
 import io.unitycatalog.client.model.PathOperation;
 import io.unitycatalog.client.model.TableOperation;
 import io.unitycatalog.client.model.TemporaryCredentials;
-import io.unitycatalog.spark.UCHadoopConf;
+import io.unitycatalog.hadoop.UCHadoopConf;
 import java.time.Duration;
 import java.util.UUID;
 import org.apache.hadoop.conf.Configuration;
