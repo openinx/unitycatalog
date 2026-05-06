@@ -3,6 +3,7 @@ package io.unitycatalog.spark
 import io.unitycatalog.client.api.{SchemasApi, TablesApi, TemporaryCredentialsApi}
 import io.unitycatalog.client.auth.TokenProvider
 import io.unitycatalog.client.model._
+import io.unitycatalog.client.model.TableInfo
 import io.unitycatalog.client.retry.JitterDelayRetryPolicy
 import io.unitycatalog.client.{ApiClient, ApiException}
 import io.unitycatalog.hadoop.HadoopCredentialConf
