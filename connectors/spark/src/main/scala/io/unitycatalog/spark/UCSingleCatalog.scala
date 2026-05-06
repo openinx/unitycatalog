@@ -151,7 +151,8 @@ class UCSingleCatalog
 
     val temporaryCredentials = temporaryCredentialsApi.generateTemporaryTableCredentials(
       new GenerateTemporaryTableCredential().tableId(stagingTableId).operation(TableOperation.READ_WRITE))
-    val credentialProps = HadoopCredentialConf.builder(uri.toString, CatalogUtils.stringToURI(stagingLocation).getScheme)
+    val credentialProps = HadoopCredentialConf
+      .builder(uri.toString, CatalogUtils.stringToURI(stagingLocation).getScheme)
       .tokenProvider(tokenProvider)
       .initialCredentials(temporaryCredentials)
       .enableCredentialRenewal(renewCredEnabled)
@@ -291,7 +292,8 @@ class UCSingleCatalog
     val newProps = new util.HashMap[String, String]
     newProps.putAll(properties)
 
-    val credentialProps = HadoopCredentialConf.builder(uri.toString, CatalogUtils.stringToURI(location).getScheme)
+    val credentialProps = HadoopCredentialConf
+      .builder(uri.toString, CatalogUtils.stringToURI(location).getScheme)
       .tokenProvider(tokenProvider)
       .initialCredentials(cred)
       .enableCredentialRenewal(renewCredEnabled)

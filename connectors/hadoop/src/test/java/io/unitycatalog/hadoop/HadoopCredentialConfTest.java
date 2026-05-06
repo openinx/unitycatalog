@@ -3,6 +3,7 @@ package io.unitycatalog.hadoop;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.unitycatalog.client.auth.TokenProvider;
 import io.unitycatalog.client.model.AwsCredentials;
 import io.unitycatalog.client.model.AzureUserDelegationSAS;
 import io.unitycatalog.client.model.GcpOauthToken;
@@ -18,8 +19,7 @@ class HadoopCredentialConfTest {
   private static final String S3A_FS = "org.apache.hadoop.fs.s3a.S3AFileSystem";
   private static final String GCS_FS = "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem";
   private static final String ABFS_FS = "org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem";
-  private static final String ABFSS_FS =
-      "org.apache.hadoop.fs.azurebfs.SecureAzureBlobFileSystem";
+  private static final String ABFSS_FS = "org.apache.hadoop.fs.azurebfs.SecureAzureBlobFileSystem";
 
   @Test
   void s3TableStaticCredentials() {
@@ -121,6 +121,66 @@ class HadoopCredentialConfTest {
         .containsEntry("fs.abfss.impl.original", ABFSS_FS);
   }
 
+  // ------- Credential renewal (fs.unitycatalog.* keys) -------
+
+  @Test
+  void s3TableWithCredentialRenewal() {
+    Map<String, String> props =
+        renewalBuilder("s3")
+            .initialCredentials(s3Creds())
+            .buildForTable("tid", TableOperation.READ_WRITE);
+
+    assertThat(props)
+        .containsEntry("fs.unitycatalog.uri", "http://uc")
+        .containsEntry("fs.unitycatalog.auth.type", "static")
+        .containsEntry("fs.unitycatalog.auth.token", "test-token")
+        .containsKey("fs.unitycatalog.credentials.uid")
+        .containsEntry("fs.unitycatalog.credentials.type", "table")
+        .containsEntry("fs.unitycatalog.table.id", "tid")
+        .containsEntry("fs.unitycatalog.table.operation", TableOperation.READ_WRITE.getValue())
+        .containsEntry(
+            "fs.s3a.aws.credentials.provider",
+            "io.unitycatalog.spark.auth.storage.AwsVendedTokenProvider");
+  }
+
+  @Test
+  void gsTableWithCredentialRenewal() {
+    Map<String, String> props =
+        renewalBuilder("gs")
+            .initialCredentials(gcsCreds())
+            .buildForTable("tid", TableOperation.READ);
+
+    assertThat(props)
+        .containsEntry("fs.unitycatalog.uri", "http://uc")
+        .containsEntry("fs.unitycatalog.auth.type", "static")
+        .containsEntry("fs.unitycatalog.auth.token", "test-token")
+        .containsKey("fs.unitycatalog.credentials.uid")
+        .containsEntry("fs.unitycatalog.credentials.type", "table")
+        .containsEntry("fs.unitycatalog.table.id", "tid")
+        .containsEntry(
+            "fs.gs.auth.access.token.provider",
+            "io.unitycatalog.spark.auth.storage.GcsVendedTokenProvider");
+  }
+
+  @Test
+  void abfsTableWithCredentialRenewal() {
+    Map<String, String> props =
+        renewalBuilder("abfs")
+            .initialCredentials(abfsCreds())
+            .buildForTable("tid", TableOperation.READ_WRITE);
+
+    assertThat(props)
+        .containsEntry("fs.unitycatalog.uri", "http://uc")
+        .containsEntry("fs.unitycatalog.auth.type", "static")
+        .containsEntry("fs.unitycatalog.auth.token", "test-token")
+        .containsKey("fs.unitycatalog.credentials.uid")
+        .containsEntry("fs.unitycatalog.credentials.type", "table")
+        .containsEntry("fs.unitycatalog.table.id", "tid")
+        .containsEntry(
+            "fs.azure.sas.token.provider.type",
+            "io.unitycatalog.spark.auth.storage.AbfsVendedTokenProvider");
+  }
+
   @Test
   void unknownSchemeReturnsEmptyMap() {
     Map<String, String> props =
@@ -187,6 +247,12 @@ class HadoopCredentialConfTest {
   /** Builder with credential renewal disabled (static creds). */
   private static HadoopCredentialConf.Builder staticBuilder(String scheme) {
     return HadoopCredentialConf.builder("http://uc", scheme).enableCredentialRenewal(false);
+  }
+
+  /** Builder with credential renewal enabled and a static token provider. */
+  private static HadoopCredentialConf.Builder renewalBuilder(String scheme) {
+    TokenProvider provider = TokenProvider.create(Map.of("type", "static", "token", "test-token"));
+    return HadoopCredentialConf.builder("http://uc", scheme).tokenProvider(provider);
   }
 
   private static TemporaryCredentials s3Creds() {
