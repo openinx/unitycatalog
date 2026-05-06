@@ -19,7 +19,7 @@ class HadoopCredentialConfTest {
   private static final String GCS_FS = "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem";
   private static final String ABFS_FS = "org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem";
   private static final String ABFSS_FS =
-      "org.apache.hadoop.fs.azurebfs" + ".SecureAzureBlobFileSystem";
+      "org.apache.hadoop.fs.azurebfs.SecureAzureBlobFileSystem";
 
   // ------- S3 -------
 

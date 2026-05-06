@@ -7,15 +7,15 @@ import io.unitycatalog.client.model.AzureUserDelegationSAS;
 import io.unitycatalog.client.model.GcpOauthToken;
 import io.unitycatalog.client.model.TableOperation;
 import io.unitycatalog.client.model.TemporaryCredentials;
-import io.unitycatalog.hadoop.internal.CredPropsUtil;
 import java.util.Map;
 import org.apache.hadoop.conf.Configuration;
 import org.junit.jupiter.api.Test;
 
 /**
- * Verifies that {@link CredPropsUtil} saves the original {@code fs.<scheme>.impl} values under
- * {@code fs.<scheme>.impl.original} before overriding them with CredScopedFileSystem, so that the
- * real delegate can be restored in {@code CredScopedFileSystem#newFileSystem}.
+ * Verifies that {@link io.unitycatalog.hadoop.internal.CredPropsUtil} saves the original {@code
+ * fs.<scheme>.impl} values under {@code fs.<scheme>.impl.original} before overriding them with
+ * CredScopedFileSystem, so that the real delegate can be restored in {@code
+ * CredScopedFileSystem#newFileSystem}.
  */
 class CredPropsUtilTest {
 

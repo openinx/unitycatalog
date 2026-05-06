@@ -105,7 +105,6 @@ public class CredPropsUtil {
      * defaultOriginal}) under {@code key + ".original"}, then overrides {@code key} with {@code
      * newValue}. This lets CredScopedFileSystem#newFileSystem restore the real delegate
      * implementation after the wrapper has been installed.
-     *
      */
     public T saveAndOverride(
         Configuration hadoopConf, String key, String defaultOriginal, String newValue) {
