@@ -82,7 +82,9 @@ class HadoopCredentialConfTest {
             .initialCredentials(gcsCreds())
             .buildForTable("tid", TableOperation.READ);
 
-    assertThat(props).containsEntry("fs.gs.auth.access.token.credential", "gcs-token");
+    assertThat(props)
+        .containsEntry("fs.gs.auth.access.token.credential", "gcs-token")
+        .containsEntry("fs.gs.auth.access.token.expiration", String.valueOf(Long.MAX_VALUE));
   }
 
   @Test
@@ -121,8 +123,6 @@ class HadoopCredentialConfTest {
         .containsEntry("fs.abfss.impl.original", ABFSS_FS);
   }
 
-  // ------- Credential renewal (fs.unitycatalog.* keys) -------
-
   @Test
   void s3TableWithCredentialRenewal() {
     Map<String, String> props =
@@ -140,7 +140,22 @@ class HadoopCredentialConfTest {
         .containsEntry("fs.unitycatalog.table.operation", TableOperation.READ_WRITE.getValue())
         .containsEntry(
             "fs.s3a.aws.credentials.provider",
-            "io.unitycatalog.spark.auth.storage.AwsVendedTokenProvider");
+            "io.unitycatalog.spark.auth.storage.AwsVendedTokenProvider")
+        .containsEntry("fs.s3a.init.access.key", "ak")
+        .containsEntry("fs.s3a.init.secret.key", "sk")
+        .containsEntry("fs.s3a.init.session.token", "st")
+        .doesNotContainKey("fs.s3a.init.credential.expired.time")
+        .doesNotContainKey("fs.s3a.access.key");
+  }
+
+  @Test
+  void s3RenewalWithExpirationTime() {
+    Map<String, String> props =
+        renewalBuilder("s3")
+            .initialCredentials(s3Creds().expirationTime(9999L))
+            .buildForTable("tid", TableOperation.READ);
+
+    assertThat(props).containsEntry("fs.s3a.init.credential.expired.time", "9999");
   }
 
   @Test
@@ -157,9 +172,13 @@ class HadoopCredentialConfTest {
         .containsKey("fs.unitycatalog.credentials.uid")
         .containsEntry("fs.unitycatalog.credentials.type", "table")
         .containsEntry("fs.unitycatalog.table.id", "tid")
+        .containsEntry("fs.unitycatalog.table.operation", TableOperation.READ.getValue())
         .containsEntry(
             "fs.gs.auth.access.token.provider",
-            "io.unitycatalog.spark.auth.storage.GcsVendedTokenProvider");
+            "io.unitycatalog.spark.auth.storage.GcsVendedTokenProvider")
+        .containsEntry("fs.gs.init.oauth.token", "gcs-token")
+        .containsEntry("fs.gs.init.oauth.token.expiration.time", String.valueOf(Long.MAX_VALUE))
+        .doesNotContainKey("fs.gs.auth.access.token.credential");
   }
 
   @Test
@@ -176,9 +195,45 @@ class HadoopCredentialConfTest {
         .containsKey("fs.unitycatalog.credentials.uid")
         .containsEntry("fs.unitycatalog.credentials.type", "table")
         .containsEntry("fs.unitycatalog.table.id", "tid")
+        .containsEntry("fs.unitycatalog.table.operation", TableOperation.READ_WRITE.getValue())
         .containsEntry(
             "fs.azure.sas.token.provider.type",
-            "io.unitycatalog.spark.auth.storage.AbfsVendedTokenProvider");
+            "io.unitycatalog.spark.auth.storage.AbfsVendedTokenProvider")
+        .containsEntry("fs.azure.init.sas.token", "sas-token")
+        .doesNotContainKey("fs.azure.init.sas.token.expired.time")
+        .doesNotContainKey("fs.azure.sas.fixed.token");
+  }
+
+  @Test
+  void s3PathWithCredentialRenewal() {
+    Map<String, String> props =
+        renewalBuilder("s3")
+            .initialCredentials(s3Creds())
+            .buildForPath("s3://bucket/key", PathOperation.PATH_READ);
+
+    assertThat(props)
+        .containsEntry("fs.unitycatalog.uri", "http://uc")
+        .containsEntry("fs.unitycatalog.credentials.type", "path")
+        .containsEntry("fs.unitycatalog.path", "s3://bucket/key")
+        .containsEntry("fs.unitycatalog.path.operation", PathOperation.PATH_READ.getValue())
+        .doesNotContainKey("fs.unitycatalog.table.id");
+  }
+
+  @Test
+  void oauthProviderConfigsArePropagated() {
+    TokenProvider oauth = oauthProvider();
+    assertOAuthProps(
+        renewalBuilder("s3", oauth)
+            .initialCredentials(s3Creds())
+            .buildForTable("tid", TableOperation.READ));
+    assertOAuthProps(
+        renewalBuilder("gs", oauth)
+            .initialCredentials(gcsCreds())
+            .buildForTable("tid", TableOperation.READ));
+    assertOAuthProps(
+        renewalBuilder("abfs", oauth)
+            .initialCredentials(abfsCreds())
+            .buildForTable("tid", TableOperation.READ));
   }
 
   @Test
@@ -244,15 +299,35 @@ class HadoopCredentialConfTest {
         .hasMessageContaining("tokenProvider");
   }
 
-  /** Builder with credential renewal disabled (static creds). */
   private static HadoopCredentialConf.Builder staticBuilder(String scheme) {
     return HadoopCredentialConf.builder("http://uc", scheme).enableCredentialRenewal(false);
   }
 
-  /** Builder with credential renewal enabled and a static token provider. */
   private static HadoopCredentialConf.Builder renewalBuilder(String scheme) {
-    TokenProvider provider = TokenProvider.create(Map.of("type", "static", "token", "test-token"));
+    return renewalBuilder(
+        scheme, TokenProvider.create(Map.of("type", "static", "token", "test-token")));
+  }
+
+  private static HadoopCredentialConf.Builder renewalBuilder(
+      String scheme, TokenProvider provider) {
     return HadoopCredentialConf.builder("http://uc", scheme).tokenProvider(provider);
+  }
+
+  private static TokenProvider oauthProvider() {
+    return TokenProvider.create(
+        Map.of(
+            "type", "oauth",
+            "oauth.uri", "https://auth.example.com/token",
+            "oauth.clientId", "my-client-id",
+            "oauth.clientSecret", "my-secret"));
+  }
+
+  private static void assertOAuthProps(Map<String, String> props) {
+    assertThat(props)
+        .containsEntry("fs.unitycatalog.auth.type", "oauth")
+        .containsEntry("fs.unitycatalog.auth.oauth.uri", "https://auth.example.com/token")
+        .containsEntry("fs.unitycatalog.auth.oauth.clientId", "my-client-id")
+        .containsEntry("fs.unitycatalog.auth.oauth.clientSecret", "my-secret");
   }
 
   private static TemporaryCredentials s3Creds() {
