@@ -112,10 +112,6 @@ lazy val commonSettings = Seq(
   assembly / test := {}
 )
 
-enablePlugins(CoursierPlugin)
-
-useCoursier := true
-
 // Configure resolvers
 resolvers ++= Seq(
   "Maven Central" at "https://repo1.maven.org/maven2/",
