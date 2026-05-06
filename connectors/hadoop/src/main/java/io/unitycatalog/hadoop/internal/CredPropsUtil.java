@@ -111,11 +111,7 @@ public class CredPropsUtil {
      */
     public T saveAndOverride(
         Configuration hadoopConf, String key, String defaultOriginal, String newValue) {
-      String existing = hadoopConf.get(key, defaultOriginal);
-      if (CRED_SCOPED_FS_CLASS.equals(existing) || CRED_SCOPED_AFS_CLASS.equals(existing)) {
-        existing = defaultOriginal;
-      }
-      builder.put(key + ".original", existing);
+      builder.put(key + ".original", hadoopConf.get(key, defaultOriginal));
       builder.put(key, newValue);
       return self();
     }
