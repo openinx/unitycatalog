@@ -14,7 +14,7 @@ import java.util.Map;
 import org.apache.hadoop.conf.Configuration;
 import org.junit.jupiter.api.Test;
 
-class HadoopCredentialConfTest {
+class UCCredentialHadoopConfsTest {
 
   private static final String S3A_FS = "org.apache.hadoop.fs.s3a.S3AFileSystem";
   private static final String GCS_FS = "com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem";
@@ -269,14 +269,14 @@ class HadoopCredentialConfTest {
 
   @Test
   void missingCatalogUriThrows() {
-    assertThatThrownBy(() -> HadoopCredentialConf.builder(null, "s3"))
+    assertThatThrownBy(() -> UCCredentialHadoopConfs.builder(null, "s3"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("catalogUri");
   }
 
   @Test
   void missingSchemeThrows() {
-    assertThatThrownBy(() -> HadoopCredentialConf.builder("http://uc", null))
+    assertThatThrownBy(() -> UCCredentialHadoopConfs.builder("http://uc", null))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("scheme");
   }
@@ -292,25 +292,25 @@ class HadoopCredentialConfTest {
   void missingTokenProviderWithRenewalThrows() {
     assertThatThrownBy(
             () ->
-                HadoopCredentialConf.builder("http://uc", "s3")
+                UCCredentialHadoopConfs.builder("http://uc", "s3")
                     .initialCredentials(s3Creds())
                     .buildForTable("tid", TableOperation.READ))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("tokenProvider");
   }
 
-  private static HadoopCredentialConf.Builder staticBuilder(String scheme) {
-    return HadoopCredentialConf.builder("http://uc", scheme).enableCredentialRenewal(false);
+  private static UCCredentialHadoopConfs.Builder staticBuilder(String scheme) {
+    return UCCredentialHadoopConfs.builder("http://uc", scheme).enableCredentialRenewal(false);
   }
 
-  private static HadoopCredentialConf.Builder renewalBuilder(String scheme) {
+  private static UCCredentialHadoopConfs.Builder renewalBuilder(String scheme) {
     return renewalBuilder(
         scheme, TokenProvider.create(Map.of("type", "static", "token", "test-token")));
   }
 
-  private static HadoopCredentialConf.Builder renewalBuilder(
+  private static UCCredentialHadoopConfs.Builder renewalBuilder(
       String scheme, TokenProvider provider) {
-    return HadoopCredentialConf.builder("http://uc", scheme).tokenProvider(provider);
+    return UCCredentialHadoopConfs.builder("http://uc", scheme).tokenProvider(provider);
   }
 
   private static TokenProvider oauthProvider() {

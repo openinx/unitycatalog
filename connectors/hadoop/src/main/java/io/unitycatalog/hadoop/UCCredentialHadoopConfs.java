@@ -14,7 +14,7 @@ import org.apache.hadoop.conf.Configuration;
  * inject so that cloud storage can be accessed with Unity-Catalog-vended credentials.
  *
  * <pre>{@code
- * Map<String, String> props = HadoopCredentialConf.builder(uri, "s3")
+ * Map<String, String> props = UCCredentialHadoopConfs.builder(uri, "s3")
  *     .tokenProvider(tokenProvider)
  *     .initialCredentials(creds)
  *     .enableCredentialRenewal(true)
@@ -25,9 +25,9 @@ import org.apache.hadoop.conf.Configuration;
  *
  * @since 0.5.0
  */
-public final class HadoopCredentialConf {
+public final class UCCredentialHadoopConfs {
 
-  private HadoopCredentialConf() {}
+  private UCCredentialHadoopConfs() {}
 
   /**
    * Creates a new {@link Builder} with the two required fields.

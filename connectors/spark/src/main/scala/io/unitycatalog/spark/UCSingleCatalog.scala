@@ -6,7 +6,7 @@ import io.unitycatalog.client.model._
 import io.unitycatalog.client.model.TableInfo
 import io.unitycatalog.client.retry.JitterDelayRetryPolicy
 import io.unitycatalog.client.{ApiClient, ApiException}
-import io.unitycatalog.hadoop.HadoopCredentialConf
+import io.unitycatalog.hadoop.UCCredentialHadoopConfs
 import io.unitycatalog.spark.auth.AuthConfigUtils
 import io.unitycatalog.spark.utils.OptionsUtil
 import org.apache.hadoop.conf.Configuration
@@ -152,7 +152,7 @@ class UCSingleCatalog
 
     val temporaryCredentials = temporaryCredentialsApi.generateTemporaryTableCredentials(
       new GenerateTemporaryTableCredential().tableId(stagingTableId).operation(TableOperation.READ_WRITE))
-    val credentialProps = HadoopCredentialConf
+    val credentialProps = UCCredentialHadoopConfs
       .builder(uri.toString, CatalogUtils.stringToURI(stagingLocation).getScheme)
       .tokenProvider(tokenProvider)
       .initialCredentials(temporaryCredentials)
@@ -257,7 +257,7 @@ class UCSingleCatalog
       new GenerateTemporaryTableCredential()
         .tableId(tableId).operation(TableOperation.READ_WRITE))
     val tableUriScheme = new Path(tableLocation).toUri.getScheme
-    val credentialProps = HadoopCredentialConf.builder(uri.toString, tableUriScheme)
+    val credentialProps = UCCredentialHadoopConfs.builder(uri.toString, tableUriScheme)
       .tokenProvider(tokenProvider)
       .initialCredentials(temporaryCredentials)
       .enableCredentialRenewal(renewCredEnabled)
@@ -293,7 +293,7 @@ class UCSingleCatalog
     val newProps = new util.HashMap[String, String]
     newProps.putAll(properties)
 
-    val credentialProps = HadoopCredentialConf
+    val credentialProps = UCCredentialHadoopConfs
       .builder(uri.toString, CatalogUtils.stringToURI(location).getScheme)
       .tokenProvider(tokenProvider)
       .initialCredentials(cred)
@@ -435,7 +435,7 @@ object UCSingleCatalog {
   /**
    * Returns the current session's Hadoop configuration.
    *
-   * Passed to {@code HadoopCredentialConf.Builder#hadoopConf} so
+   * Passed to {@code UCCredentialHadoopConfs.Builder#hadoopConf} so
    * that the builder can look up any existing {@code fs.<scheme>.impl} values before
    * overriding them with the credential-scoped filesystem wrapper.
    */
@@ -607,7 +607,7 @@ private class UCProxy(
     val extraSerdeProps = if (temporaryCredentials == null) {
       Map.empty[String, String].asJava
     } else {
-      HadoopCredentialConf.builder(uri.toString, locationUri.getScheme)
+      UCCredentialHadoopConfs.builder(uri.toString, locationUri.getScheme)
         .tokenProvider(tokenProvider)
         .initialCredentials(temporaryCredentials)
         .enableCredentialRenewal(renewCredEnabled)
