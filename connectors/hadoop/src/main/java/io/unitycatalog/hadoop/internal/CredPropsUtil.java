@@ -5,6 +5,7 @@ import static io.unitycatalog.hadoop.internal.UCHadoopConf.FS_AZURE_ACCOUNT_IS_H
 import static io.unitycatalog.hadoop.internal.UCHadoopConf.FS_AZURE_SAS_TOKEN_PROVIDER_TYPE;
 
 import io.unitycatalog.client.auth.TokenProvider;
+import io.unitycatalog.client.internal.Preconditions;
 import io.unitycatalog.client.model.AwsCredentials;
 import io.unitycatalog.client.model.AzureUserDelegationSAS;
 import io.unitycatalog.client.model.GcpOauthToken;
@@ -19,8 +20,8 @@ import java.util.UUID;
 import org.apache.hadoop.conf.Configuration;
 
 /**
- * Internal utility that builds cloud-provider-specific Hadoop configuration properties for
- * Unity-Catalog-vended credentials.
+ * Internal utility that builds cloud-provider specific Hadoop configuration properties for Unity
+ * Catalog vended credentials.
  *
  * <p><b>This is an internal class and is not part of the public API.</b> Use {@link
  * HadoopCredentialConf} instead.
@@ -70,12 +71,11 @@ public class CredPropsUtil {
     }
 
     public T credentialType(String credType) {
-      if (!UCHadoopConf.UC_CREDENTIALS_TYPE_PATH_VALUE.equals(credType)
-          && !UCHadoopConf.UC_CREDENTIALS_TYPE_TABLE_VALUE.equals(credType)) {
-        throw new IllegalArgumentException(
-            String.format(
-                "Invalid credential type '%s', must be either 'path' or 'table'.", credType));
-      }
+      Preconditions.checkArgument(
+          UCHadoopConf.UC_CREDENTIALS_TYPE_PATH_VALUE.equals(credType)
+              || UCHadoopConf.UC_CREDENTIALS_TYPE_TABLE_VALUE.equals(credType),
+          "Invalid credential type '%s', must be either 'path' or 'table'.",
+          credType);
       builder.put(UCHadoopConf.UC_CREDENTIALS_TYPE_KEY, credType);
       return self();
     }
