@@ -21,8 +21,6 @@ class HadoopCredentialConfTest {
   private static final String ABFSS_FS =
       "org.apache.hadoop.fs.azurebfs.SecureAzureBlobFileSystem";
 
-  // ------- S3 -------
-
   @Test
   void s3TableStaticCredentials() {
     Map<String, String> props =
@@ -77,8 +75,6 @@ class HadoopCredentialConfTest {
     assertThat(props).containsEntry("fs.s3a.access.key", "ak");
   }
 
-  // ------- GCS -------
-
   @Test
   void gsTableStaticCredentials() {
     Map<String, String> props =
@@ -99,8 +95,6 @@ class HadoopCredentialConfTest {
 
     assertThat(props).containsEntry("fs.gs.impl.original", GCS_FS);
   }
-
-  // ------- Azure -------
 
   @Test
   void abfsTableStaticCredentials() {
@@ -126,8 +120,6 @@ class HadoopCredentialConfTest {
         .containsEntry("fs.abfs.impl.original", ABFS_FS)
         .containsEntry("fs.abfss.impl.original", ABFSS_FS);
   }
-
-  // ------- Edge cases -------
 
   @Test
   void unknownSchemeReturnsEmptyMap() {
@@ -160,8 +152,6 @@ class HadoopCredentialConfTest {
     assertThatThrownBy(() -> props.put("k", "v")).isInstanceOf(UnsupportedOperationException.class);
   }
 
-  // ------- Validation -------
-
   @Test
   void missingCatalogUriThrows() {
     assertThatThrownBy(() -> HadoopCredentialConf.builder(null, "s3"))
@@ -193,8 +183,6 @@ class HadoopCredentialConfTest {
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("tokenProvider");
   }
-
-  // ------- Helpers -------
 
   /** Builder with credential renewal disabled (static creds). */
   private static HadoopCredentialConf.Builder staticBuilder(String scheme) {
