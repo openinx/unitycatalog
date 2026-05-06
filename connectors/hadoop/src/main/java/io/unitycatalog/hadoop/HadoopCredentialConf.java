@@ -43,20 +43,6 @@ public final class HadoopCredentialConf {
   /**
    * Collects credential settings and produces Hadoop configuration properties via {@link
    * #buildForTable} or {@link #buildForPath}.
-   *
-   * <p>Required fields (passed to {@link HadoopCredentialConf#builder}):
-   *
-   * <ul>
-   *   <li>{@link #catalogUri}
-   *   <li>{@link #scheme}
-   * </ul>
-   *
-   * <p>Additional required fields (set via builder methods):
-   *
-   * <ul>
-   *   <li>{@link #initialCredentials}
-   *   <li>{@link #tokenProvider} — only when {@link #enableCredentialRenewal} is {@code true}
-   * </ul>
    */
   public static final class Builder {
 

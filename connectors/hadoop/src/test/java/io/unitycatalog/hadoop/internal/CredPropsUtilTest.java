@@ -1,4 +1,4 @@
-package io.unitycatalog.hadoop.internal.auth;
+package io.unitycatalog.hadoop.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

@@ -106,8 +106,6 @@ public class CredPropsUtil {
      * newValue}. This lets CredScopedFileSystem#newFileSystem restore the real delegate
      * implementation after the wrapper has been installed.
      *
-     * <p>If the existing value is already one of the credential-scoped FS classes, it is ignored
-     * (falls back to {@code defaultOriginal}) to prevent recursive wrapping.
      */
     public T saveAndOverride(
         Configuration hadoopConf, String key, String defaultOriginal, String newValue) {
