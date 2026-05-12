@@ -50,10 +50,11 @@ public final class UCDeltaTableIdentifier {
 
   @Override
   public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
     if (!(o instanceof UCDeltaTableIdentifier)) {
       return false;
-    } else if (this == o) {
-      return true;
     }
     UCDeltaTableIdentifier that = (UCDeltaTableIdentifier) o;
     return Objects.equals(catalog, that.catalog)

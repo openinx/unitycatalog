@@ -1,15 +1,22 @@
 package io.unitycatalog.hadoop.internal;
 
+import io.unitycatalog.client.ApiClient;
+import io.unitycatalog.client.ApiException;
 import io.unitycatalog.client.auth.TokenProvider;
 import io.unitycatalog.client.delta.model.CredentialOperation;
+import io.unitycatalog.client.delta.model.CredentialsResponse;
+import io.unitycatalog.client.internal.ApiClientUtils;
 import io.unitycatalog.client.internal.Preconditions;
 import io.unitycatalog.client.model.AwsCredentials;
 import io.unitycatalog.client.model.AzureUserDelegationSAS;
 import io.unitycatalog.client.model.GcpOauthToken;
+import io.unitycatalog.client.model.GenerateTemporaryPathCredential;
+import io.unitycatalog.client.model.GenerateTemporaryTableCredential;
 import io.unitycatalog.client.model.PathOperation;
 import io.unitycatalog.client.model.TableOperation;
 import io.unitycatalog.client.model.TemporaryCredentials;
 import io.unitycatalog.hadoop.UCCredentialHadoopConfs;
+import java.net.URI;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -609,5 +616,126 @@ public class CredPropsUtil {
       default:
         return Collections.emptyMap();
     }
+  }
+
+  /**
+   * Fetches table credentials from the UC REST API and builds Hadoop configuration properties.
+   *
+   * @param appVersions engine version map passed to the UC API User-Agent (keys are bare names like
+   *     {@code "Spark"}, not Hadoop property keys)
+   */
+  public static Map<String, String> fetchTableCredProps(
+      boolean renewCredEnabled,
+      boolean credScopedFsEnabled,
+      Configuration hadoopConf,
+      String scheme,
+      String catalogUri,
+      TokenProvider tokenProvider,
+      String tableId,
+      io.unitycatalog.hadoop.TableOperation tableOp,
+      Map<String, String> appVersions)
+      throws ApiException {
+    TableOperation clientOp = TableOperation.fromValue(tableOp.getValue());
+    TemporaryCredentials creds =
+        new io.unitycatalog.client.api.TemporaryCredentialsApi(
+                createApiClient(catalogUri, tokenProvider, appVersions))
+            .generateTemporaryTableCredentials(
+                new GenerateTemporaryTableCredential().tableId(tableId).operation(clientOp));
+    return createTableCredProps(
+        renewCredEnabled,
+        credScopedFsEnabled,
+        hadoopConf,
+        scheme,
+        catalogUri,
+        tokenProvider,
+        tableId,
+        clientOp,
+        creds);
+  }
+
+  /**
+   * Fetches Delta table credentials from the UC Delta API and builds Hadoop configuration
+   * properties.
+   *
+   * @param appVersions engine version map passed to the UC API User-Agent
+   */
+  public static Map<String, String> fetchDeltaTableCredProps(
+      boolean renewCredEnabled,
+      boolean credScopedFsEnabled,
+      Configuration hadoopConf,
+      String scheme,
+      String catalogUri,
+      TokenProvider tokenProvider,
+      UCDeltaTableIdentifier identifier,
+      String location,
+      io.unitycatalog.hadoop.TableOperation tableOp,
+      Map<String, String> appVersions)
+      throws ApiException {
+    CredentialOperation clientOp = CredentialOperation.fromValue(tableOp.getValue());
+    CredentialsResponse response =
+        new io.unitycatalog.client.delta.api.TemporaryCredentialsApi(
+                createApiClient(catalogUri, tokenProvider, appVersions))
+            .getTableCredentials(
+                clientOp, identifier.catalog(), identifier.schema(), identifier.table());
+    Preconditions.checkArgument(
+        response != null, "UC Delta API returned no credentials response for '%s'.", identifier);
+    TemporaryCredentials creds =
+        DeltaStorageCredentialUtil.toTemporaryCredentials(
+            DeltaStorageCredentialUtil.selectForLocation(
+                location, response.getStorageCredentials()));
+    return createDeltaTableCredProps(
+        renewCredEnabled,
+        credScopedFsEnabled,
+        hadoopConf,
+        scheme,
+        catalogUri,
+        tokenProvider,
+        identifier,
+        location,
+        clientOp,
+        creds);
+  }
+
+  /**
+   * Fetches path credentials from the UC REST API and builds Hadoop configuration properties.
+   *
+   * @param appVersions engine version map passed to the UC API User-Agent
+   */
+  public static Map<String, String> fetchPathCredProps(
+      boolean renewCredEnabled,
+      boolean credScopedFsEnabled,
+      Configuration hadoopConf,
+      String scheme,
+      String catalogUri,
+      TokenProvider tokenProvider,
+      String path,
+      io.unitycatalog.hadoop.PathOperation pathOp,
+      Map<String, String> appVersions)
+      throws ApiException {
+    PathOperation clientOp = PathOperation.fromValue(pathOp.getValue());
+    TemporaryCredentials creds =
+        new io.unitycatalog.client.api.TemporaryCredentialsApi(
+                createApiClient(catalogUri, tokenProvider, appVersions))
+            .generateTemporaryPathCredentials(
+                new GenerateTemporaryPathCredential().url(path).operation(clientOp));
+    return createPathCredProps(
+        renewCredEnabled,
+        credScopedFsEnabled,
+        hadoopConf,
+        scheme,
+        catalogUri,
+        tokenProvider,
+        path,
+        clientOp,
+        creds);
+  }
+
+  private static ApiClient createApiClient(
+      String catalogUri, TokenProvider tokenProvider, Map<String, String> appVersions) {
+    return ApiClientUtils.create(
+        URI.create(catalogUri),
+        tokenProvider,
+        UCHadoopConfConstants.createRequestRetryPolicy(null),
+        appVersions);
   }
 }
