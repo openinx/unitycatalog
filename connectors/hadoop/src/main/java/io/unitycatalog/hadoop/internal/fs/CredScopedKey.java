@@ -1,5 +1,6 @@
 package io.unitycatalog.hadoop.internal.fs;
 
+import io.unitycatalog.hadoop.UCDeltaTableIdentifier;
 import io.unitycatalog.hadoop.internal.UCHadoopConfConstants;
 import java.net.URI;
 import java.util.Objects;
@@ -13,7 +14,9 @@ import org.apache.hadoop.fs.FileSystem;
  *
  * <ul>
  *   <li>{@link TableCredScopedKey} — keyed by table ID and operation; used for table-level
- *       temporary credentials.
+ *       temporary credentials via the UC credentials API.
+ *   <li>{@link DeltaTableCredScopedKey} — keyed by table identity, operation, and a per-job UID;
+ *       used for table-level temporary credentials via the UC Delta credentials API.
  *   <li>{@link PathCredScopedKey} — keyed by path and operation; used for path-level temporary
  *       credentials.
  *   <li>{@link DefaultCredScopedKey} — keyed by URI scheme and authority; used as a fallback when
@@ -25,14 +28,24 @@ public interface CredScopedKey {
   static CredScopedKey create(URI uri, Configuration conf) {
     String type = conf.get(UCHadoopConfConstants.UC_CREDENTIALS_TYPE_KEY);
     if (UCHadoopConfConstants.UC_CREDENTIALS_TYPE_PATH_VALUE.equals(type)) {
-      String path = conf.get(UCHadoopConfConstants.UC_PATH_KEY);
-      String pathOperation = conf.get(UCHadoopConfConstants.UC_PATH_OPERATION_KEY);
-
-      return new PathCredScopedKey(path, pathOperation);
+      return new PathCredScopedKey(
+          conf.get(UCHadoopConfConstants.UC_PATH_KEY),
+          conf.get(UCHadoopConfConstants.UC_PATH_OPERATION_KEY));
     } else if (UCHadoopConfConstants.UC_CREDENTIALS_TYPE_TABLE_VALUE.equals(type)) {
-      String tableId = conf.get(UCHadoopConfConstants.UC_TABLE_ID_KEY);
-      String tableOperation = conf.get(UCHadoopConfConstants.UC_TABLE_OPERATION_KEY);
-      return new TableCredScopedKey(tableId, tableOperation);
+      if (conf.getBoolean(
+          UCHadoopConfConstants.UC_DELTA_CREDENTIALS_API_ENABLED_KEY,
+          UCHadoopConfConstants.UC_DELTA_CREDENTIALS_API_ENABLED_DEFAULT_VALUE)) {
+        return new DeltaTableCredScopedKey(
+            UCDeltaTableIdentifier.of(
+                conf.get(UCHadoopConfConstants.UC_DELTA_CATALOG_KEY),
+                conf.get(UCHadoopConfConstants.UC_DELTA_SCHEMA_KEY),
+                conf.get(UCHadoopConfConstants.UC_DELTA_TABLE_NAME_KEY)),
+            conf.get(UCHadoopConfConstants.UC_TABLE_OPERATION_KEY),
+            conf.get(UCHadoopConfConstants.UC_CREDENTIALS_UID_KEY));
+      }
+      return new TableCredScopedKey(
+          conf.get(UCHadoopConfConstants.UC_TABLE_ID_KEY),
+          conf.get(UCHadoopConfConstants.UC_TABLE_OPERATION_KEY));
     }
 
     return new DefaultCredScopedKey(uri, conf);
@@ -92,6 +105,45 @@ public interface CredScopedKey {
     @Override
     public String toString() {
       return "TableCredScopedKey{tableId=" + tableId + ", op=" + tableOperation + "}";
+    }
+  }
+
+  class DeltaTableCredScopedKey implements CredScopedKey {
+    private final UCDeltaTableIdentifier identifier;
+    private final String tableOperation;
+    private final String uid;
+
+    public DeltaTableCredScopedKey(
+        UCDeltaTableIdentifier identifier, String tableOperation, String uid) {
+      this.identifier = identifier;
+      this.tableOperation = tableOperation;
+      this.uid = uid;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (!(o instanceof DeltaTableCredScopedKey)) return false;
+      DeltaTableCredScopedKey that = (DeltaTableCredScopedKey) o;
+      return Objects.equals(identifier, that.identifier)
+          && Objects.equals(tableOperation, that.tableOperation)
+          && Objects.equals(uid, that.uid);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(identifier, tableOperation, uid);
+    }
+
+    @Override
+    public String toString() {
+      return "DeltaTableCredScopedKey{table="
+          + identifier
+          + ", op="
+          + tableOperation
+          + ", uid="
+          + uid
+          + "}";
     }
   }
 

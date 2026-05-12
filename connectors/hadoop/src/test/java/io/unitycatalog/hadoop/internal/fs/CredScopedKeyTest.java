@@ -2,6 +2,7 @@ package io.unitycatalog.hadoop.internal.fs;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.unitycatalog.hadoop.UCDeltaTableIdentifier;
 import io.unitycatalog.hadoop.internal.UCHadoopConfConstants;
 import java.net.URI;
 import org.apache.hadoop.conf.Configuration;
@@ -91,5 +92,70 @@ class CredScopedKeyTest {
   void createReturnsDefaultKeyWhenNoType() {
     assertThat(CredScopedKey.create(URI.create("s3://b"), new Configuration()))
         .isInstanceOf(CredScopedKey.DefaultCredScopedKey.class);
+  }
+
+  @Test
+  void deltaTableKeyEqualWhenSameFields() {
+    UCDeltaTableIdentifier id = UCDeltaTableIdentifier.of("cat", "sch", "tbl");
+    assertThat(new CredScopedKey.DeltaTableCredScopedKey(id, "READ_WRITE", "uid-1"))
+        .isEqualTo(new CredScopedKey.DeltaTableCredScopedKey(id, "READ_WRITE", "uid-1"))
+        .hasSameHashCodeAs(new CredScopedKey.DeltaTableCredScopedKey(id, "READ_WRITE", "uid-1"));
+  }
+
+  @Test
+  void deltaTableKeyNotEqualWhenDifferentCatalog() {
+    assertThat(
+            new CredScopedKey.DeltaTableCredScopedKey(
+                UCDeltaTableIdentifier.of("cat1", "sch", "tbl"), "READ", "uid-1"))
+        .isNotEqualTo(
+            new CredScopedKey.DeltaTableCredScopedKey(
+                UCDeltaTableIdentifier.of("cat2", "sch", "tbl"), "READ", "uid-1"));
+  }
+
+  @Test
+  void deltaTableKeyNotEqualWhenDifferentOperation() {
+    UCDeltaTableIdentifier id = UCDeltaTableIdentifier.of("cat", "sch", "tbl");
+    assertThat(new CredScopedKey.DeltaTableCredScopedKey(id, "READ", "uid-1"))
+        .isNotEqualTo(new CredScopedKey.DeltaTableCredScopedKey(id, "READ_WRITE", "uid-1"));
+  }
+
+  @Test
+  void deltaTableKeyNotEqualWhenDifferentUid() {
+    UCDeltaTableIdentifier id = UCDeltaTableIdentifier.of("cat", "sch", "tbl");
+    assertThat(new CredScopedKey.DeltaTableCredScopedKey(id, "READ", "uid-1"))
+        .isNotEqualTo(new CredScopedKey.DeltaTableCredScopedKey(id, "READ", "uid-2"));
+  }
+
+  @Test
+  void createReturnsDeltaTableKeyWhenDeltaApiEnabled() {
+    Configuration conf = new Configuration();
+    conf.set(
+        UCHadoopConfConstants.UC_CREDENTIALS_TYPE_KEY,
+        UCHadoopConfConstants.UC_CREDENTIALS_TYPE_TABLE_VALUE);
+    conf.set(UCHadoopConfConstants.UC_DELTA_CREDENTIALS_API_ENABLED_KEY, "true");
+    conf.set(UCHadoopConfConstants.UC_DELTA_CATALOG_KEY, "cat");
+    conf.set(UCHadoopConfConstants.UC_DELTA_SCHEMA_KEY, "sch");
+    conf.set(UCHadoopConfConstants.UC_DELTA_TABLE_NAME_KEY, "tbl");
+    conf.set(UCHadoopConfConstants.UC_TABLE_OPERATION_KEY, "READ_WRITE");
+    conf.set(UCHadoopConfConstants.UC_CREDENTIALS_UID_KEY, "uid-1");
+
+    UCDeltaTableIdentifier id = UCDeltaTableIdentifier.of("cat", "sch", "tbl");
+    assertThat(CredScopedKey.create(URI.create("s3://b"), conf))
+        .isInstanceOf(CredScopedKey.DeltaTableCredScopedKey.class)
+        .isEqualTo(new CredScopedKey.DeltaTableCredScopedKey(id, "READ_WRITE", "uid-1"));
+  }
+
+  @Test
+  void createReturnsTableKeyWhenDeltaApiNotEnabled() {
+    Configuration conf = new Configuration();
+    conf.set(
+        UCHadoopConfConstants.UC_CREDENTIALS_TYPE_KEY,
+        UCHadoopConfConstants.UC_CREDENTIALS_TYPE_TABLE_VALUE);
+    conf.set(UCHadoopConfConstants.UC_TABLE_ID_KEY, "tid");
+    conf.set(UCHadoopConfConstants.UC_TABLE_OPERATION_KEY, "READ");
+
+    assertThat(CredScopedKey.create(URI.create("s3://b"), conf))
+        .isInstanceOf(CredScopedKey.TableCredScopedKey.class)
+        .isEqualTo(new CredScopedKey.TableCredScopedKey("tid", "READ"));
   }
 }
