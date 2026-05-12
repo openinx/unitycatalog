@@ -63,10 +63,10 @@ public final class UCCredentialHadoopConfs {
     private Configuration hadoopConf = new Configuration(false);
     private final Map<String, String> engineVersionProps = new LinkedHashMap<>();
 
-    private Builder(String uri, String scheme) {
-      Preconditions.checkArgument(uri != null, "catalogUri is required");
+    private Builder(String catalogUri, String scheme) {
+      Preconditions.checkArgument(catalogUri != null, "catalogUri is required");
       Preconditions.checkArgument(scheme != null, "scheme is required");
-      this.catalogUri = uri;
+      this.catalogUri = catalogUri;
       this.scheme = scheme;
     }
 
