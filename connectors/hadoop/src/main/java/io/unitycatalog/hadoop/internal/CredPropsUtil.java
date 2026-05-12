@@ -9,6 +9,7 @@ import io.unitycatalog.client.model.PathOperation;
 import io.unitycatalog.client.model.TableOperation;
 import io.unitycatalog.client.model.TemporaryCredentials;
 import io.unitycatalog.hadoop.UCCredentialHadoopConfs;
+import io.unitycatalog.hadoop.UCDeltaTableIdentifier;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -79,6 +80,18 @@ public class CredPropsUtil {
 
     public T tableId(String tableId) {
       builder.put(UCHadoopConfConstants.UC_TABLE_ID_KEY, tableId);
+      return self();
+    }
+
+    public T ucDeltaTableIdentifier(UCDeltaTableIdentifier identifier, String location) {
+      builder.put(UCHadoopConfConstants.UC_DELTA_CREDENTIALS_API_ENABLED_KEY, "true");
+      builder.put(
+          UCHadoopConfConstants.UC_CREDENTIALS_TYPE_KEY,
+          UCHadoopConfConstants.UC_CREDENTIALS_TYPE_TABLE_VALUE);
+      builder.put(UCHadoopConfConstants.UC_DELTA_CATALOG_KEY, identifier.catalog());
+      builder.put(UCHadoopConfConstants.UC_DELTA_SCHEMA_KEY, identifier.schema());
+      builder.put(UCHadoopConfConstants.UC_DELTA_TABLE_NAME_KEY, identifier.table());
+      builder.put(UCHadoopConfConstants.UC_DELTA_LOCATION_KEY, location);
       return self();
     }
 
@@ -417,6 +430,67 @@ public class CredPropsUtil {
         .path(path)
         .pathOperation(pathOp)
         .build();
+  }
+
+  /**
+   * Builds the Hadoop configuration properties needed to access a UC Delta table's storage.
+   *
+   * @param renewCredEnabled when {@code true}, configures a vended-token provider that
+   *     automatically refreshes credentials before expiry; when {@code false}, embeds the initial
+   *     credentials as static keys.
+   * @param credScopedFsEnabled when {@code true}, overrides {@code fs.<scheme>.impl} with
+   *     CredScopedFileSystem so that filesystem instances are reused per credential scope rather
+   *     than created anew for every file access.
+   * @param hadoopConf the engine's existing Hadoop configuration, used to read any previously
+   *     configured {@code fs.<scheme>.impl} values before they are overridden by
+   *     CredScopedFileSystem.
+   */
+  public static Map<String, String> createDeltaTableCredProps(
+      boolean renewCredEnabled,
+      boolean credScopedFsEnabled,
+      Configuration hadoopConf,
+      String scheme,
+      String uri,
+      TokenProvider tokenProvider,
+      UCDeltaTableIdentifier identifier,
+      String location,
+      TableOperation tableOp,
+      TemporaryCredentials tempCreds) {
+    switch (scheme) {
+      case "s3":
+        if (renewCredEnabled) {
+          return s3TempCredPropsBuilder(
+                  credScopedFsEnabled, hadoopConf, uri, tokenProvider, tempCreds)
+              .ucDeltaTableIdentifier(identifier, location)
+              .tableOperation(tableOp)
+              .build();
+        } else {
+          return s3FixedCredProps(credScopedFsEnabled, hadoopConf, tempCreds);
+        }
+      case "gs":
+        if (renewCredEnabled) {
+          return gcsTempCredPropsBuilder(
+                  credScopedFsEnabled, hadoopConf, uri, tokenProvider, tempCreds)
+              .ucDeltaTableIdentifier(identifier, location)
+              .tableOperation(tableOp)
+              .build();
+        } else {
+          return gsFixedCredProps(credScopedFsEnabled, hadoopConf, tempCreds);
+        }
+      case "abfss":
+      case "abfs":
+        if (renewCredEnabled) {
+          return abfsTempCredPropsBuilder(
+                  credScopedFsEnabled, hadoopConf, uri, tokenProvider, tempCreds)
+              .ucDeltaTableIdentifier(identifier, location)
+              .tableOperation(tableOp)
+              .build();
+        } else {
+          return abfsFixedCredProps(credScopedFsEnabled, hadoopConf, tempCreds);
+        }
+      default:
+        return Collections.emptyMap();
+    }
   }
 
   /**

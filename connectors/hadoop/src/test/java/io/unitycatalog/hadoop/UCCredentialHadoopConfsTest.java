@@ -441,7 +441,8 @@ class UCCredentialHadoopConfsTest {
     Map<String, String> props =
         renewalBuilder("s3")
             .initialStorageCredential(deltaS3Credential())
-            .buildForTable("table-uuid", "catalog", "schema", "table", "s3://bucket/table");
+            .buildForTable(
+                UCDeltaTableIdentifier.of("catalog", "schema", "table"), "s3://bucket/table");
 
     assertThat(props)
         .containsEntry(
@@ -449,7 +450,7 @@ class UCCredentialHadoopConfsTest {
         .containsEntry(
             UCHadoopConfConstants.UC_CREDENTIALS_TYPE_KEY,
             UCHadoopConfConstants.UC_CREDENTIALS_TYPE_TABLE_VALUE)
-        .containsEntry(UCHadoopConfConstants.UC_TABLE_ID_KEY, "table-uuid")
+        .doesNotContainKey(UCHadoopConfConstants.UC_TABLE_ID_KEY)
         .containsEntry(UCHadoopConfConstants.UC_DELTA_CATALOG_KEY, "catalog")
         .containsEntry(UCHadoopConfConstants.UC_DELTA_SCHEMA_KEY, "schema")
         .containsEntry(UCHadoopConfConstants.UC_DELTA_TABLE_NAME_KEY, "table")
@@ -465,7 +466,8 @@ class UCCredentialHadoopConfsTest {
     Map<String, String> gcsProps =
         renewalBuilder("gs")
             .initialStorageCredential(deltaGcsCredential())
-            .buildForTable("gcs-table-uuid", "catalog", "schema", "table", "gs://bucket/table");
+            .buildForTable(
+                UCDeltaTableIdentifier.of("catalog", "schema", "table"), "gs://bucket/table");
     assertThat(gcsProps)
         .containsEntry(UCHadoopConfConstants.UC_TABLE_OPERATION_KEY, "READ")
         .containsEntry(UCHadoopConfConstants.GCS_INIT_OAUTH_TOKEN, "gcs-oauth-token")
@@ -475,10 +477,7 @@ class UCCredentialHadoopConfsTest {
         renewalBuilder("abfss")
             .initialStorageCredential(deltaAzureCredential())
             .buildForTable(
-                "azure-table-uuid",
-                "catalog",
-                "schema",
-                "table",
+                UCDeltaTableIdentifier.of("catalog", "schema", "table"),
                 "abfss://container@account.dfs.core.windows.net/table");
     assertThat(azureProps)
         .containsEntry(UCHadoopConfConstants.UC_TABLE_OPERATION_KEY, "READ_WRITE")
@@ -501,7 +500,8 @@ class UCCredentialHadoopConfsTest {
             () ->
                 renewalBuilder("gs")
                     .initialStorageCredential(credential)
-                    .buildForTable("table-uuid", "catalog", "schema", "table", "gs://b/t"))
+                    .buildForTable(
+                        UCDeltaTableIdentifier.of("catalog", "schema", "table"), "gs://b/t"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("must contain exactly one cloud credential config");
   }
@@ -511,7 +511,8 @@ class UCCredentialHadoopConfsTest {
     assertThatThrownBy(
             () ->
                 renewalBuilder("s3")
-                    .buildForTable("table-uuid", "catalog", "schema", "table", "s3://b/t"))
+                    .buildForTable(
+                        UCDeltaTableIdentifier.of("catalog", "schema", "table"), "s3://b/t"))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("initialStorageCredential is required");
   }
@@ -541,7 +542,8 @@ class UCCredentialHadoopConfsTest {
             () ->
                 renewalBuilder("s3")
                     .initialCredentials(s3Creds())
-                    .buildForTable("table-uuid", "catalog", "schema", "table", "s3://b/t"))
+                    .buildForTable(
+                        UCDeltaTableIdentifier.of("catalog", "schema", "table"), "s3://b/t"))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("initialStorageCredential is required");
   }
@@ -563,16 +565,43 @@ class UCCredentialHadoopConfsTest {
             () ->
                 renewalBuilder("s3")
                     .initialStorageCredential(deltaS3Credential())
-                    .buildForTable(null, "catalog", "schema", "table", "s3://bucket/table"))
+                    .buildForTable((UCDeltaTableIdentifier) null, "s3://bucket/table"))
         .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("tableId is required");
+        .hasMessageContaining("identifier is required");
 
     assertThatThrownBy(
             () ->
                 renewalBuilder("s3")
                     .initialStorageCredential(deltaS3Credential())
-                    .buildForTable("table-uuid", null, "schema", "table", "s3://bucket/table"))
+                    .buildForTable(
+                        UCDeltaTableIdentifier.of(null, "schema", "table"), "s3://bucket/table"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("catalog is required");
+
+    assertThatThrownBy(
+            () ->
+                renewalBuilder("s3")
+                    .initialStorageCredential(deltaS3Credential())
+                    .buildForTable(
+                        UCDeltaTableIdentifier.of("catalog", null, "table"), "s3://bucket/table"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("schema is required");
+
+    assertThatThrownBy(
+            () ->
+                renewalBuilder("s3")
+                    .initialStorageCredential(deltaS3Credential())
+                    .buildForTable(
+                        UCDeltaTableIdentifier.of("catalog", "schema", null), "s3://bucket/table"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("table is required");
+
+    assertThatThrownBy(
+            () ->
+                renewalBuilder("s3")
+                    .initialStorageCredential(deltaS3Credential())
+                    .buildForTable(UCDeltaTableIdentifier.of("catalog", "schema", "table"), null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("location is required");
   }
 }
