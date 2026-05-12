@@ -13,6 +13,8 @@ import org.apache.hadoop.conf.Configuration;
  * Creates internal Hadoop credential wrappers from Unity Catalog temporary credential APIs.
  *
  * <p>This is an adapter over SDK-generated API clients, not a generated API client itself.
+ *
+ * <p><b>Internal API — not for external use. May change without notice.</b>
  */
 public interface TempCredentialApi {
   GenericCredential createCredential() throws ApiException;

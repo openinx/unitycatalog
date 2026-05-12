@@ -537,6 +537,93 @@ class CredPropsUtilTest {
         .isEmpty();
   }
 
+  // Engine version merging.
+
+  @Test
+  void engineVersionsMergedIntoNonEmptyProps() {
+    Map<String, String> credProps =
+        CredPropsUtil.createTableCredProps(
+            false,
+            false,
+            new Configuration(false),
+            "s3",
+            "http://uc",
+            null,
+            "tid",
+            TableOperation.READ_WRITE,
+            s3Creds());
+    Map<String, String> engineVersionProps =
+        Map.of(
+            UCHadoopConfConstants.UC_ENGINE_VERSION_PREFIX + "Spark", "4.0.0",
+            UCHadoopConfConstants.UC_ENGINE_VERSION_PREFIX + "Delta", "3.3.0");
+
+    Map<String, String> merged =
+        CredPropsUtil.mergeEngineVersionProps(credProps, engineVersionProps);
+
+    assertThat(merged)
+        .containsEntry(UCHadoopConfConstants.UC_ENGINE_VERSION_PREFIX + "Spark", "4.0.0")
+        .containsEntry(UCHadoopConfConstants.UC_ENGINE_VERSION_PREFIX + "Delta", "3.3.0")
+        .containsKey("fs.s3a.access.key");
+  }
+
+  @Test
+  void engineVersionsMergeIsUnmodifiable() {
+    Map<String, String> credProps =
+        CredPropsUtil.createTableCredProps(
+            false,
+            false,
+            new Configuration(false),
+            "s3",
+            "http://uc",
+            null,
+            "tid",
+            TableOperation.READ_WRITE,
+            s3Creds());
+    Map<String, String> merged =
+        CredPropsUtil.mergeEngineVersionProps(
+            credProps, Map.of(UCHadoopConfConstants.UC_ENGINE_VERSION_PREFIX + "Spark", "4.0.0"));
+
+    assertThatThrownBy(() -> merged.put("k", "v"))
+        .isInstanceOf(UnsupportedOperationException.class);
+  }
+
+  @Test
+  void engineVersionsMergeReturnsOriginalWhenVersionsEmpty() {
+    Map<String, String> credProps =
+        CredPropsUtil.createTableCredProps(
+            false,
+            false,
+            new Configuration(false),
+            "s3",
+            "http://uc",
+            null,
+            "tid",
+            TableOperation.READ_WRITE,
+            s3Creds());
+
+    assertThat(CredPropsUtil.mergeEngineVersionProps(credProps, Map.of())).isSameAs(credProps);
+  }
+
+  @Test
+  void engineVersionsMergeReturnsOriginalWhenPropsEmpty() {
+    Map<String, String> empty =
+        CredPropsUtil.createTableCredProps(
+            false,
+            false,
+            new Configuration(false),
+            "hdfs",
+            "http://uc",
+            null,
+            "tid",
+            TableOperation.READ_WRITE,
+            s3Creds());
+
+    assertThat(empty).isEmpty();
+    Map<String, String> versions =
+        Map.of(UCHadoopConfConstants.UC_ENGINE_VERSION_PREFIX + "Spark", "4.0.0");
+    assertThat(CredPropsUtil.mergeEngineVersionProps(empty, versions)).isSameAs(empty);
+  }
+
   private static TokenProvider tokenProvider() {
     return TokenProvider.create(Map.of("type", "static", "token", "tok"));
   }

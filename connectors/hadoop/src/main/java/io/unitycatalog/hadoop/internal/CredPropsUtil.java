@@ -617,6 +617,20 @@ public class CredPropsUtil {
   }
 
   /**
+   * Merges Hadoop engine-version props (keys like {@code fs.unitycatalog.engine.version.Spark})
+   * into {@code props}. Returns {@code props} unchanged when either map is empty.
+   */
+  public static Map<String, String> mergeEngineVersionProps(
+      Map<String, String> props, Map<String, String> engineVersionProps) {
+    if (props.isEmpty() || engineVersionProps.isEmpty()) {
+      return props;
+    }
+    Map<String, String> merged = new HashMap<>(props);
+    merged.putAll(engineVersionProps);
+    return Collections.unmodifiableMap(merged);
+  }
+
+  /**
    * Fetches table credentials from the UC REST API and builds Hadoop configuration properties.
    *
    * @param appVersions engine version map passed to the UC API User-Agent (keys are bare names like

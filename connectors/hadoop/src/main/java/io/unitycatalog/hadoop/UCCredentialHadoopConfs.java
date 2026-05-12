@@ -6,7 +6,6 @@ import io.unitycatalog.client.internal.Preconditions;
 import io.unitycatalog.hadoop.internal.CredPropsUtil;
 import io.unitycatalog.hadoop.internal.UCDeltaTableIdentifier;
 import io.unitycatalog.hadoop.internal.UCHadoopConfConstants;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -130,7 +129,7 @@ public final class UCCredentialHadoopConfs {
     public Map<String, String> buildForTable(String tableId, TableOperation tableOperation)
         throws ApiException {
       Preconditions.checkState(tokenProvider != null, "tokenProvider is required");
-      return withEngineVersionProps(
+      return CredPropsUtil.mergeEngineVersionProps(
           CredPropsUtil.fetchTableCredProps(
               credentialRenewalEnabled,
               credentialScopedFsEnabled,
@@ -140,7 +139,8 @@ public final class UCCredentialHadoopConfs {
               tokenProvider,
               tableId,
               tableOperation,
-              appVersions()));
+              appVersions()),
+          engineVersionProps);
     }
 
     /**
@@ -164,7 +164,7 @@ public final class UCCredentialHadoopConfs {
       Preconditions.checkArgument(operation != null, "operation is required");
       Preconditions.checkArgument(location != null && !location.isEmpty(), "location is required");
       Preconditions.checkState(tokenProvider != null, "tokenProvider is required");
-      return withEngineVersionProps(
+      return CredPropsUtil.mergeEngineVersionProps(
           CredPropsUtil.fetchDeltaTableCredProps(
               credentialRenewalEnabled,
               credentialScopedFsEnabled,
@@ -175,7 +175,8 @@ public final class UCCredentialHadoopConfs {
               identifier,
               location,
               operation,
-              appVersions()));
+              appVersions()),
+          engineVersionProps);
     }
 
     /**
@@ -188,7 +189,7 @@ public final class UCCredentialHadoopConfs {
     public Map<String, String> buildForPath(String path, PathOperation pathOperation)
         throws ApiException {
       Preconditions.checkState(tokenProvider != null, "tokenProvider is required");
-      return withEngineVersionProps(
+      return CredPropsUtil.mergeEngineVersionProps(
           CredPropsUtil.fetchPathCredProps(
               credentialRenewalEnabled,
               credentialScopedFsEnabled,
@@ -198,7 +199,8 @@ public final class UCCredentialHadoopConfs {
               tokenProvider,
               path,
               pathOperation,
-              appVersions()));
+              appVersions()),
+          engineVersionProps);
     }
 
     private Map<String, String> appVersions() {
@@ -209,15 +211,6 @@ public final class UCCredentialHadoopConfs {
             if (k.startsWith(prefix)) result.put(k.substring(prefix.length()), v);
           });
       return result;
-    }
-
-    private Map<String, String> withEngineVersionProps(Map<String, String> props) {
-      if (props.isEmpty() || engineVersionProps.isEmpty()) {
-        return props;
-      }
-      Map<String, String> merged = new HashMap<>(props);
-      merged.putAll(engineVersionProps);
-      return Collections.unmodifiableMap(merged);
     }
   }
 }

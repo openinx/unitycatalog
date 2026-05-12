@@ -564,7 +564,7 @@ private class UCProxy(
     val locationUri = CatalogUtils.stringToURI(t.getStorageLocation)
     val tableId = t.getTableId
 
-    def credBuilder() =
+    val credBuilder =
       UCCredentialHadoopConfs
         .builder(uri.toString, locationUri.getScheme)
         .addEngineVersions(ApiClientFactory.appEngineVersions())
@@ -578,12 +578,12 @@ private class UCProxy(
     //       READ_WRITE credentials as of today. When loading a table, Spark should tell if it's
     //       for read or write, we can request the proper credential after fixing Spark.
     val extraSerdeProps = try {
-      credBuilder().buildForTable(tableId, TableOperation.READ_WRITE)
+      credBuilder.buildForTable(tableId, TableOperation.READ_WRITE)
     } catch {
       case e: ApiException =>
         logWarning(s"READ_WRITE credential generation failed for table $identifier: ${e.getMessage}")
         try {
-          credBuilder().buildForTable(tableId, TableOperation.READ)
+          credBuilder.buildForTable(tableId, TableOperation.READ)
         } catch {
           case e: ApiException =>
             logWarning(s"READ credential generation failed for table $identifier: ${e.getMessage}")
