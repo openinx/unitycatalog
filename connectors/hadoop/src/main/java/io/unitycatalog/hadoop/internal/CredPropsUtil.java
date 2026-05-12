@@ -4,18 +4,16 @@ import io.unitycatalog.client.ApiClient;
 import io.unitycatalog.client.ApiException;
 import io.unitycatalog.client.auth.TokenProvider;
 import io.unitycatalog.client.delta.model.CredentialOperation;
-import io.unitycatalog.client.delta.model.CredentialsResponse;
 import io.unitycatalog.client.internal.ApiClientUtils;
 import io.unitycatalog.client.internal.Preconditions;
 import io.unitycatalog.client.model.AwsCredentials;
 import io.unitycatalog.client.model.AzureUserDelegationSAS;
 import io.unitycatalog.client.model.GcpOauthToken;
-import io.unitycatalog.client.model.GenerateTemporaryPathCredential;
-import io.unitycatalog.client.model.GenerateTemporaryTableCredential;
 import io.unitycatalog.client.model.PathOperation;
 import io.unitycatalog.client.model.TableOperation;
 import io.unitycatalog.client.model.TemporaryCredentials;
 import io.unitycatalog.hadoop.UCCredentialHadoopConfs;
+import io.unitycatalog.hadoop.internal.auth.TempCredentialApi;
 import java.net.URI;
 import java.util.Collections;
 import java.util.HashMap;
@@ -636,11 +634,16 @@ public class CredPropsUtil {
       Map<String, String> appVersions)
       throws ApiException {
     TableOperation clientOp = TableOperation.fromValue(tableOp.getValue());
+    Configuration reqConf = new Configuration(false);
+    reqConf.set(
+        UCHadoopConfConstants.UC_CREDENTIALS_TYPE_KEY,
+        UCHadoopConfConstants.UC_CREDENTIALS_TYPE_TABLE_VALUE);
+    reqConf.set(UCHadoopConfConstants.UC_TABLE_ID_KEY, tableId);
+    reqConf.set(UCHadoopConfConstants.UC_TABLE_OPERATION_KEY, tableOp.getValue());
     TemporaryCredentials creds =
-        new io.unitycatalog.client.api.TemporaryCredentialsApi(
-                createApiClient(catalogUri, tokenProvider, appVersions))
-            .generateTemporaryTableCredentials(
-                new GenerateTemporaryTableCredential().tableId(tableId).operation(clientOp));
+        TempCredentialApi.create(createApiClient(catalogUri, tokenProvider, appVersions), reqConf)
+            .createCredential()
+            .temporaryCredentials();
     return createTableCredProps(
         renewCredEnabled,
         credScopedFsEnabled,
@@ -672,17 +675,17 @@ public class CredPropsUtil {
       Map<String, String> appVersions)
       throws ApiException {
     CredentialOperation clientOp = CredentialOperation.fromValue(tableOp.getValue());
-    CredentialsResponse response =
-        new io.unitycatalog.client.delta.api.TemporaryCredentialsApi(
-                createApiClient(catalogUri, tokenProvider, appVersions))
-            .getTableCredentials(
-                clientOp, identifier.catalog(), identifier.schema(), identifier.table());
-    Preconditions.checkArgument(
-        response != null, "UC Delta API returned no credentials response for '%s'.", identifier);
+    Configuration reqConf = new Configuration(false);
+    reqConf.set(UCHadoopConfConstants.UC_DELTA_CREDENTIALS_API_ENABLED_KEY, "true");
+    reqConf.set(UCHadoopConfConstants.UC_TABLE_OPERATION_KEY, tableOp.getValue());
+    reqConf.set(UCHadoopConfConstants.UC_DELTA_CATALOG_KEY, identifier.catalog());
+    reqConf.set(UCHadoopConfConstants.UC_DELTA_SCHEMA_KEY, identifier.schema());
+    reqConf.set(UCHadoopConfConstants.UC_DELTA_TABLE_NAME_KEY, identifier.table());
+    reqConf.set(UCHadoopConfConstants.UC_DELTA_LOCATION_KEY, location);
     TemporaryCredentials creds =
-        DeltaStorageCredentialUtil.toTemporaryCredentials(
-            DeltaStorageCredentialUtil.selectForLocation(
-                location, response.getStorageCredentials()));
+        TempCredentialApi.create(createApiClient(catalogUri, tokenProvider, appVersions), reqConf)
+            .createCredential()
+            .temporaryCredentials();
     return createDeltaTableCredProps(
         renewCredEnabled,
         credScopedFsEnabled,
@@ -713,11 +716,16 @@ public class CredPropsUtil {
       Map<String, String> appVersions)
       throws ApiException {
     PathOperation clientOp = PathOperation.fromValue(pathOp.getValue());
+    Configuration reqConf = new Configuration(false);
+    reqConf.set(
+        UCHadoopConfConstants.UC_CREDENTIALS_TYPE_KEY,
+        UCHadoopConfConstants.UC_CREDENTIALS_TYPE_PATH_VALUE);
+    reqConf.set(UCHadoopConfConstants.UC_PATH_KEY, path);
+    reqConf.set(UCHadoopConfConstants.UC_PATH_OPERATION_KEY, pathOp.getValue());
     TemporaryCredentials creds =
-        new io.unitycatalog.client.api.TemporaryCredentialsApi(
-                createApiClient(catalogUri, tokenProvider, appVersions))
-            .generateTemporaryPathCredentials(
-                new GenerateTemporaryPathCredential().url(path).operation(clientOp));
+        TempCredentialApi.create(createApiClient(catalogUri, tokenProvider, appVersions), reqConf)
+            .createCredential()
+            .temporaryCredentials();
     return createPathCredProps(
         renewCredEnabled,
         credScopedFsEnabled,
