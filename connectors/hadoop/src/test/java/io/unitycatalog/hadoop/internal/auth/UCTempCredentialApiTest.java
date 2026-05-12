@@ -26,7 +26,7 @@ class UCTempCredentialApiTest {
     Configuration conf = BaseTokenProviderTest.newTableBasedConf();
     conf.unset(UCHadoopConfConstants.UC_URI_KEY);
 
-    assertThatThrownBy(() -> TempCredentialApi.create(conf))
+    assertThatThrownBy(() -> GenericCredentialFetcher.create(conf))
         .isInstanceOf(NullPointerException.class)
         .hasMessage("'%s' is not set in hadoop configuration", UCHadoopConfConstants.UC_URI_KEY);
   }
@@ -37,7 +37,7 @@ class UCTempCredentialApiTest {
     conf.unset(UCHadoopConfConstants.UC_AUTH_TYPE);
     conf.unset(UCHadoopConfConstants.UC_AUTH_TOKEN_KEY);
 
-    assertThatThrownBy(() -> TempCredentialApi.create(conf))
+    assertThatThrownBy(() -> GenericCredentialFetcher.create(conf))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Required configuration key 'type' is missing or empty");
   }
@@ -48,7 +48,7 @@ class UCTempCredentialApiTest {
     TemporaryCredentialsApi api = mock(TemporaryCredentialsApi.class);
     when(api.generateTemporaryTableCredentials(any())).thenReturn(new TemporaryCredentials());
 
-    TempCredentialApi credentialApi = new UCTempCredentialApi(conf, api);
+    GenericCredentialFetcher credentialApi = new UCUCTempCredentialFetcher(conf, api);
 
     conf.set(
         UCHadoopConfConstants.UC_CREDENTIALS_TYPE_KEY,
@@ -74,7 +74,7 @@ class UCTempCredentialApiTest {
     TemporaryCredentialsApi api = mock(TemporaryCredentialsApi.class);
     when(api.generateTemporaryPathCredentials(any())).thenReturn(new TemporaryCredentials());
 
-    TempCredentialApi credentialApi = new UCTempCredentialApi(conf, api);
+    GenericCredentialFetcher credentialApi = new UCUCTempCredentialFetcher(conf, api);
 
     conf.set(
         UCHadoopConfConstants.UC_CREDENTIALS_TYPE_KEY,

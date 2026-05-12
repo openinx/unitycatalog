@@ -22,15 +22,15 @@ public class AbfsVendedTokenProviderTest extends BaseTokenProviderTest<AbfsVende
   }
 
   static class TestAbfsVendedTokenProvider extends AbfsVendedTokenProvider {
-    private final TempCredentialApi credentialApi;
+    private final GenericCredentialFetcher credentialApi;
 
     TestAbfsVendedTokenProvider(Configuration conf, TemporaryCredentialsApi mockApi) {
       initialize(conf);
-      this.credentialApi = new UCTempCredentialApi(conf, mockApi);
+      this.credentialApi = new UCUCTempCredentialFetcher(conf, mockApi);
     }
 
     @Override
-    TempCredentialApi tempCredentialApi() {
+    GenericCredentialFetcher tempCredentialApi() {
       return credentialApi;
     }
   }

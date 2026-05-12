@@ -21,7 +21,7 @@ import org.apache.hadoop.conf.Configuration;
  *     .enableCredentialRenewal(true)
  *     .enableCredentialScopedFs(true)
  *     .hadoopConf(hadoopConf)
- *     .buildForTable(tableId, TableOperation.READ_WRITE);
+ *     .buildForTable(tableId, UCCredentialHadoopConfs.TableOperation.READ_WRITE);
  * }</pre>
  *
  * @since 0.5.0
@@ -29,6 +29,39 @@ import org.apache.hadoop.conf.Configuration;
 public final class UCCredentialHadoopConfs {
 
   private UCCredentialHadoopConfs() {}
+
+  /** The access operation requested for a Unity Catalog table credential. */
+  public enum TableOperation {
+    READ("READ"),
+    READ_WRITE("READ_WRITE");
+
+    private final String value;
+
+    TableOperation(String value) {
+      this.value = value;
+    }
+
+    public String getValue() {
+      return value;
+    }
+  }
+
+  /** The access operation requested for a Unity Catalog external path credential. */
+  public enum PathOperation {
+    PATH_READ("PATH_READ"),
+    PATH_READ_WRITE("PATH_READ_WRITE"),
+    PATH_CREATE_TABLE("PATH_CREATE_TABLE");
+
+    private final String value;
+
+    PathOperation(String value) {
+      this.value = value;
+    }
+
+    public String getValue() {
+      return value;
+    }
+  }
 
   /**
    * Creates a new {@link Builder} with the two required fields.

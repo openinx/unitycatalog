@@ -29,15 +29,15 @@ public class AwsVendedTokenProviderTest extends BaseTokenProviderTest<AwsVendedT
   }
 
   static class TestAwsVendedTokenProvider extends AwsVendedTokenProvider {
-    private final TempCredentialApi credentialApi;
+    private final GenericCredentialFetcher credentialApi;
 
     TestAwsVendedTokenProvider(Configuration conf, TemporaryCredentialsApi tempCredApi) {
       super(conf);
-      this.credentialApi = new UCTempCredentialApi(conf, tempCredApi);
+      this.credentialApi = new UCUCTempCredentialFetcher(conf, tempCredApi);
     }
 
     @Override
-    TempCredentialApi tempCredentialApi() {
+    GenericCredentialFetcher tempCredentialApi() {
       return credentialApi;
     }
   }

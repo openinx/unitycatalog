@@ -6,7 +6,7 @@ import io.unitycatalog.client.model._
 import io.unitycatalog.client.model.TableInfo
 import io.unitycatalog.client.retry.JitterDelayRetryPolicy
 import io.unitycatalog.client.{ApiClient, ApiException}
-import io.unitycatalog.hadoop.{PathOperation, TableOperation, UCCredentialHadoopConfs}
+import io.unitycatalog.hadoop.UCCredentialHadoopConfs
 import io.unitycatalog.spark.auth.AuthConfigUtils
 import io.unitycatalog.spark.utils.OptionsUtil
 import org.apache.hadoop.conf.Configuration
@@ -155,7 +155,7 @@ class UCSingleCatalog
       .enableCredentialRenewal(renewCredEnabled)
       .enableCredentialScopedFs(credScopedFsEnabled)
       .hadoopConf(UCSingleCatalog.sessionHadoopConf())
-      .buildForTable(stagingTableId, TableOperation.READ_WRITE)
+      .buildForTable(stagingTableId, UCCredentialHadoopConfs.TableOperation.READ_WRITE)
     UCSingleCatalog.setCredentialProps(newProps, credentialProps)
     newProps
   }
@@ -257,7 +257,7 @@ class UCSingleCatalog
       .enableCredentialRenewal(renewCredEnabled)
       .enableCredentialScopedFs(credScopedFsEnabled)
       .hadoopConf(UCSingleCatalog.sessionHadoopConf())
-      .buildForTable(tableId, TableOperation.READ_WRITE)
+      .buildForTable(tableId, UCCredentialHadoopConfs.TableOperation.READ_WRITE)
     UCSingleCatalog.setCredentialProps(newProps, credentialProps)
     newProps
   }
@@ -292,7 +292,7 @@ class UCSingleCatalog
       .enableCredentialRenewal(renewCredEnabled)
       .enableCredentialScopedFs(credScopedFsEnabled)
       .hadoopConf(UCSingleCatalog.sessionHadoopConf())
-      .buildForPath(location, PathOperation.PATH_CREATE_TABLE)
+      .buildForPath(location, UCCredentialHadoopConfs.PathOperation.PATH_CREATE_TABLE)
 
     UCSingleCatalog.setCredentialProps(newProps, credentialProps)
     newProps
@@ -578,12 +578,12 @@ private class UCProxy(
     //       READ_WRITE credentials as of today. When loading a table, Spark should tell if it's
     //       for read or write, we can request the proper credential after fixing Spark.
     val extraSerdeProps = try {
-      credBuilder.buildForTable(tableId, TableOperation.READ_WRITE)
+      credBuilder.buildForTable(tableId, UCCredentialHadoopConfs.TableOperation.READ_WRITE)
     } catch {
       case e: ApiException =>
         logWarning(s"READ_WRITE credential generation failed for table $identifier: ${e.getMessage}")
         try {
-          credBuilder.buildForTable(tableId, TableOperation.READ)
+          credBuilder.buildForTable(tableId, UCCredentialHadoopConfs.TableOperation.READ)
         } catch {
           case e: ApiException =>
             logWarning(s"READ credential generation failed for table $identifier: ${e.getMessage}")

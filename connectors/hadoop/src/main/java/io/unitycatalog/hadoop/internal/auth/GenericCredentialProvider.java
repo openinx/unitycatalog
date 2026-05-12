@@ -33,7 +33,7 @@ public abstract class GenericCredentialProvider {
   private boolean credCacheEnabled;
 
   private volatile GenericCredential credential;
-  private volatile TempCredentialApi credentialApi;
+  private volatile GenericCredentialFetcher credentialApi;
 
   protected void initialize(Configuration conf) {
     this.conf = conf;
@@ -80,11 +80,11 @@ public abstract class GenericCredentialProvider {
     return credential;
   }
 
-  TempCredentialApi tempCredentialApi() {
+  GenericCredentialFetcher tempCredentialApi() {
     if (credentialApi == null) {
       synchronized (this) {
         if (credentialApi == null) {
-          credentialApi = TempCredentialApi.create(conf);
+          credentialApi = GenericCredentialFetcher.create(conf);
         }
       }
     }
