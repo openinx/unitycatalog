@@ -1,33 +1,17 @@
 package io.unitycatalog.hadoop.internal;
 
-import io.unitycatalog.client.delta.model.CredentialOperation;
 import io.unitycatalog.client.delta.model.StorageCredential;
 import io.unitycatalog.client.delta.model.StorageCredentialConfig;
 import io.unitycatalog.client.internal.Preconditions;
 import io.unitycatalog.client.model.AwsCredentials;
 import io.unitycatalog.client.model.AzureUserDelegationSAS;
 import io.unitycatalog.client.model.GcpOauthToken;
-import io.unitycatalog.client.model.TableOperation;
 import io.unitycatalog.client.model.TemporaryCredentials;
 import java.util.List;
 
 /** Internal utility for UC Delta storage credentials. */
 public final class DeltaStorageCredentialUtil {
   private DeltaStorageCredentialUtil() {}
-
-  /** Converts a UC Delta credential operation to the equivalent standard UC table operation. */
-  public static TableOperation toTableOperation(CredentialOperation op) {
-    Preconditions.checkArgument(op != null, "StorageCredential.operation is required");
-    switch (op) {
-      case READ:
-        return TableOperation.READ;
-      case READ_WRITE:
-        return TableOperation.READ_WRITE;
-      default:
-        throw new IllegalArgumentException(
-            "Unsupported UC Delta table credential operation: " + op);
-    }
-  }
 
   /** Converts one UC Delta storage credential into standard UC temporary credentials. */
   public static TemporaryCredentials toTemporaryCredentials(StorageCredential cred) {

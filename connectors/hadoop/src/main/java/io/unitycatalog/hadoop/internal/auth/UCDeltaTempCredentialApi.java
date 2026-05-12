@@ -5,7 +5,6 @@ import io.unitycatalog.client.delta.api.TemporaryCredentialsApi;
 import io.unitycatalog.client.delta.model.CredentialOperation;
 import io.unitycatalog.client.delta.model.CredentialsResponse;
 import io.unitycatalog.client.internal.Preconditions;
-import io.unitycatalog.client.model.TableOperation;
 import io.unitycatalog.hadoop.internal.DeltaStorageCredentialUtil;
 import io.unitycatalog.hadoop.internal.UCHadoopConfConstants;
 import org.apache.hadoop.conf.Configuration;
@@ -57,7 +56,7 @@ final class UCDeltaTempCredentialApi implements TempCredentialApi {
   }
 
   static CredentialOperation toCredentialOperation(String tableOperation) {
-    switch (TableOperation.fromValue(tableOperation)) {
+    switch (CredentialOperation.fromValue(tableOperation)) {
       case READ:
         return CredentialOperation.READ;
       case READ_WRITE:
