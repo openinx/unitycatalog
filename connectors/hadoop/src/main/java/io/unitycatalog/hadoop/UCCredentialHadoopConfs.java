@@ -1,6 +1,7 @@
 package io.unitycatalog.hadoop;
 
 import io.unitycatalog.client.auth.TokenProvider;
+import io.unitycatalog.client.delta.model.CredentialOperation;
 import io.unitycatalog.client.delta.model.StorageCredential;
 import io.unitycatalog.client.internal.Preconditions;
 import io.unitycatalog.client.model.PathOperation;
@@ -8,6 +9,7 @@ import io.unitycatalog.client.model.TableOperation;
 import io.unitycatalog.client.model.TemporaryCredentials;
 import io.unitycatalog.hadoop.internal.CredPropsUtil;
 import io.unitycatalog.hadoop.internal.DeltaStorageCredentialUtil;
+import io.unitycatalog.hadoop.internal.UCDeltaTableIdentifier;
 import io.unitycatalog.hadoop.internal.UCHadoopConfConstants;
 import java.util.Collections;
 import java.util.HashMap;
@@ -63,10 +65,10 @@ public final class UCCredentialHadoopConfs {
     private Configuration hadoopConf = new Configuration(false);
     private final Map<String, String> engineVersionProps = new LinkedHashMap<>();
 
-    private Builder(String uri, String scheme) {
-      Preconditions.checkArgument(uri != null, "catalogUri is required");
+    private Builder(String catalogUri, String scheme) {
+      Preconditions.checkArgument(catalogUri != null, "catalogUri is required");
       Preconditions.checkArgument(scheme != null, "scheme is required");
-      this.catalogUri = uri;
+      this.catalogUri = catalogUri;
       this.scheme = scheme;
     }
 
@@ -183,47 +185,39 @@ public final class UCCredentialHadoopConfs {
     /**
      * Builds Hadoop properties for a UC Delta table's storage location.
      *
-     * @param tableId the UC table UUID, used to scope the credential cache and filesystem cache
      * @param catalog the UC catalog name
      * @param schema the UC schema name
      * @param table the UC table name
+     * @param operation the credential operation to request from the UC Delta credentials API
      * @param location the table storage location used to select a returned storage credential
      * @return unmodifiable map; empty if the scheme is unrecognized
-     * @throws IllegalArgumentException if a table identity field is missing
+     * @throws IllegalArgumentException if a table identity, operation, or location field is missing
      * @throws IllegalStateException if a required builder field is missing
      */
     public Map<String, String> buildForTable(
-        String tableId, String catalog, String schema, String table, String location) {
-      Preconditions.checkArgument(tableId != null && !tableId.isEmpty(), "tableId is required");
-      Preconditions.checkArgument(catalog != null && !catalog.isEmpty(), "catalog is required");
-      Preconditions.checkArgument(schema != null && !schema.isEmpty(), "schema is required");
-      Preconditions.checkArgument(table != null && !table.isEmpty(), "table is required");
+        String catalog,
+        String schema,
+        String table,
+        CredentialOperation operation,
+        String location) {
+      UCDeltaTableIdentifier identifier = UCDeltaTableIdentifier.of(catalog, schema, table);
+      Preconditions.checkArgument(operation != null, "operation is required");
       Preconditions.checkArgument(location != null && !location.isEmpty(), "location is required");
       validateUcDeltaApi();
       TemporaryCredentials tempCreds =
           DeltaStorageCredentialUtil.toTemporaryCredentials(initialStorageCredential);
-      Map<String, String> props =
-          CredPropsUtil.createTableCredProps(
+      return withEngineVersionProps(
+          CredPropsUtil.createDeltaTableCredProps(
               credentialRenewalEnabled,
               credentialScopedFsEnabled,
               hadoopConf,
               scheme,
               catalogUri,
               tokenProvider,
-              tableId,
-              DeltaStorageCredentialUtil.toTableOperation(initialStorageCredential.getOperation()),
-              tempCreds);
-      if (props.isEmpty()) {
-        return props;
-      }
-      Map<String, String> deltaProps = new HashMap<>(props);
-      deltaProps.put(
-          UCHadoopConfConstants.UC_DELTA_CREDENTIALS_API_ENABLED_KEY, Boolean.TRUE.toString());
-      deltaProps.put(UCHadoopConfConstants.UC_DELTA_CATALOG_KEY, catalog);
-      deltaProps.put(UCHadoopConfConstants.UC_DELTA_SCHEMA_KEY, schema);
-      deltaProps.put(UCHadoopConfConstants.UC_DELTA_TABLE_NAME_KEY, table);
-      deltaProps.put(UCHadoopConfConstants.UC_DELTA_LOCATION_KEY, location);
-      return withEngineVersionProps(Collections.unmodifiableMap(deltaProps));
+              identifier,
+              location,
+              operation,
+              tempCreds));
     }
 
     /**
